@@ -1,19 +1,30 @@
 <?php
 // Simple web interface to initiate calls via Siptize API
-// Stores extension and dialed number in a SQLite database
+// Stores extension and dialed number in a MySQL database
 
-// Connect to SQLite database using an absolute path so it works under Apache
-$dbPath = __DIR__ . '/calls.db';
-$pdo = new PDO('sqlite:' . $dbPath);
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+// Connect to MySQL database using environment variables or defaults
+$host = getenv('DB_HOST') ?: 'localhost';
+$db   = getenv('DB_NAME') ?: 'calls';
+$user = getenv('DB_USER') ?: 'root';
+$pass = getenv('DB_PASS') ?: '';
+$charset = 'utf8mb4';
+
+$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$options = [
+    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    PDO::ATTR_EMULATE_PREPARES   => false,
+];
+
+$pdo = new PDO($dsn, $user, $pass, $options);
 
 // Create table if it doesn't exist
 $pdo->exec('CREATE TABLE IF NOT EXISTS calls (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    extension TEXT NOT NULL,
-    number TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-)');
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    extension VARCHAR(255) NOT NULL,
+    number VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
 $message = '';
 
