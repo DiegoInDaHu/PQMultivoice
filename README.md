@@ -9,7 +9,7 @@ Interfaz web en PHP para realizar llamadas mediante la API de Siptize.
 
 ## Uso
 
-1. Abra `config.php` para realizar llamadas inmediatas o configurar múltiples fechas para cada combinación de extensión y código.
+1. Abra `config.php` para configurar la API key, realizar llamadas inmediatas o configurar múltiples fechas para cada combinación de extensión y código.
 2. Seleccione las fechas desde el calendario (puede marcar varias) y guárdelas; los días seleccionados se almacenan en la base de datos y aparecerán resaltados al volver a abrir la página.
 3. El historial de llamadas y de fechas programadas se visualiza en `index.php`.
 4. Configure las variables de entorno `DB_HOST`, `DB_NAME`, `DB_USER` y `DB_PASS` o edite los archivos PHP con sus credenciales de MySQL.
