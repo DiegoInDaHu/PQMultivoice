@@ -2,8 +2,9 @@
 // Simple web interface to initiate calls via Siptize API
 // Stores extension and dialed number in a SQLite database
 
-// Connect to SQLite database
-$pdo = new PDO('sqlite:calls.db');
+// Connect to SQLite database using an absolute path so it works under Apache
+$dbPath = __DIR__ . '/calls.db';
+$pdo = new PDO('sqlite:' . $dbPath);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Create table if it doesn't exist
