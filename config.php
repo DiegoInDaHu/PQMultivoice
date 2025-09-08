@@ -41,8 +41,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
 $apiKey = $pdo->query('SELECT api_key FROM settings WHERE id = 1')->fetchColumn() ?: '';
 
 $message = '';
-$extension = trim($_POST['extension'] ?? '');
-$number = trim($_POST['number'] ?? '');
+$extension = trim($_POST['extension'] ?? $_GET['extension'] ?? '');
+$number = trim($_POST['number'] ?? $_GET['number'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';

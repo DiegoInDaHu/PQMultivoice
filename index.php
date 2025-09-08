@@ -66,7 +66,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
 
     <h2>Llamadas programadas</h2>
     <table class="table table-striped">
-        <thead><tr><th>Extensión</th><th>Código</th><th>Programada</th><th>Ejecutada</th></tr></thead>
+        <thead><tr><th>Extensión</th><th>Código</th><th>Programada</th><th>Ejecutada</th><th>Editar</th></tr></thead>
         <tbody>
         <?php foreach ($pdo->query('SELECT extension, number, scheduled_at, executed_at FROM scheduled_calls ORDER BY id DESC') as $row): ?>
             <tr>
@@ -74,6 +74,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
                 <td><?= htmlspecialchars($row['number']) ?></td>
                 <td><?= htmlspecialchars($row['scheduled_at']) ?></td>
                 <td><?= htmlspecialchars($row['executed_at'] ?? '-') ?></td>
+                <td><a class="btn btn-sm btn-primary" href="config.php?extension=<?= urlencode($row['extension']) ?>&number=<?= urlencode($row['number']) ?>">Editar</a></td>
             </tr>
         <?php endforeach; ?>
         </tbody>
