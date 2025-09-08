@@ -2,9 +2,9 @@
 // History page styled with Bootstrap
 
 $host = getenv('DB_HOST') ?: 'localhost';
-$db   = getenv('DB_NAME') ?: 'calls';
+$db   = getenv('DB_NAME') ?: 'multivoice';
 $user = getenv('DB_USER') ?: 'root';
-$pass = getenv('DB_PASS') ?: '';
+$pass = getenv('DB_PASS') ?: 'terminal';
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
