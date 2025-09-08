@@ -25,6 +25,18 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
+$pdo->exec('CREATE TABLE IF NOT EXISTS settings (
+    id INT PRIMARY KEY,
+    api_key VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+$apiKey = $pdo->query('SELECT api_key FROM settings WHERE id = 1')->fetchColumn();
+
+if (!$apiKey) {
+    echo "API key not configured\n";
+    exit;
+}
+
 $stmt = $pdo->prepare('SELECT id, extension, number FROM scheduled_calls WHERE executed_at IS NULL AND scheduled_at <= NOW()');
 $stmt->execute();
 $calls = $stmt->fetchAll();
@@ -34,6 +46,10 @@ foreach ($calls as $call) {
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+        'Content-type: application/json',
+        'X-Api-Key: ' . $apiKey
+    ]);
     $response = curl_exec($ch);
     $error = curl_error($ch);
     curl_close($ch);

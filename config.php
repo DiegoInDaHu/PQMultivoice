@@ -33,6 +33,13 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
+$pdo->exec('CREATE TABLE IF NOT EXISTS settings (
+    id INT PRIMARY KEY,
+    api_key VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+$apiKey = $pdo->query('SELECT api_key FROM settings WHERE id = 1')->fetchColumn() ?: '';
+
 $message = '';
 $extension = trim($_POST['extension'] ?? '');
 $number = trim($_POST['number'] ?? '');
@@ -40,11 +47,27 @@ $number = trim($_POST['number'] ?? '');
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    if ($action === 'call_now') {
-        if ($extension !== '' && $number !== '') {
+    if ($action === 'save_api_key') {
+        $newKey = trim($_POST['api_key'] ?? '');
+        if ($newKey !== '') {
+            $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key) VALUES (1, :api_key)');
+            $stmt->execute([':api_key' => $newKey]);
+            $apiKey = $newKey;
+            $message = 'API key actualizada.';
+        } else {
+            $message = 'La API key es obligatoria.';
+        }
+    } elseif ($action === 'call_now') {
+        if ($apiKey === '') {
+            $message = 'API key no configurada.';
+        } elseif ($extension !== '' && $number !== '') {
             $url = "https://vpbx.me/api/originatecall/" . urlencode($extension) . "/" . urlencode($number) . "?timeout=20&autoAnswer=true";
             $ch = curl_init($url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Content-type: application/json',
+                'X-Api-Key: ' . $apiKey
+            ]);
             $response = curl_exec($ch);
             $error = curl_error($ch);
             curl_close($ch);
@@ -104,9 +127,19 @@ if ($extension !== '' && $number !== '') {
     </div>
 </nav>
 <div class="container">
-    <?php if ($message): ?>
+<?php if ($message): ?>
         <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
     <?php endif; ?>
+
+    <h2>API Key</h2>
+    <form method="post" class="mb-5">
+        <input type="hidden" name="action" value="save_api_key">
+        <div class="mb-3">
+            <label for="api_key" class="form-label">API Key</label>
+            <input type="text" class="form-control" name="api_key" id="api_key" value="<?= htmlspecialchars($apiKey) ?>" required>
+        </div>
+        <button type="submit" class="btn btn-secondary">Guardar API Key</button>
+    </form>
 
     <h2>Llamada inmediata</h2>
     <form method="post" class="mb-5">
