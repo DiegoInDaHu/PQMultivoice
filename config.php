@@ -54,8 +54,12 @@ try {
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    code VARCHAR(255) NOT NULL UNIQUE
+    code VARCHAR(255) NOT NULL UNIQUE,
+    color VARCHAR(7) DEFAULT "#0d6efd"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+try {
+    $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
+} catch (PDOException $e) {}
 
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
@@ -89,7 +93,7 @@ $message = '';
 $editId = intval($_GET['edit_id'] ?? 0);
 $editBehavior = null;
 if ($editId) {
-    $stmt = $pdo->prepare('SELECT id, name, code FROM behaviors WHERE id = :id');
+$stmt = $pdo->prepare('SELECT id, name, code, color FROM behaviors WHERE id = :id');
     $stmt->execute([':id' => $editId]);
     $editBehavior = $stmt->fetch();
 }
@@ -153,30 +157,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $behaviorId = intval($_POST['behavior_id'] ?? 0);
         $behaviorName = trim($_POST['behavior_name'] ?? '');
         $behaviorCode = trim($_POST['behavior_code'] ?? '');
-        if ($behaviorName !== '' && $behaviorCode !== '') {
+        $behaviorColor = trim($_POST['behavior_color'] ?? '#0d6efd');
+        if ($behaviorName !== '' && $behaviorCode !== '' && $behaviorColor !== '') {
             if ($behaviorId) {
                 $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
                 $stmt->execute([':id' => $behaviorId]);
                 $oldCode = $stmt->fetchColumn();
-                $stmt = $pdo->prepare('UPDATE behaviors SET name = :name, code = :code WHERE id = :id');
-                $stmt->execute([':name' => $behaviorName, ':code' => $behaviorCode, ':id' => $behaviorId]);
+                $stmt = $pdo->prepare('UPDATE behaviors SET name = :name, code = :code, color = :color WHERE id = :id');
+                $stmt->execute([':name' => $behaviorName, ':code' => $behaviorCode, ':color' => $behaviorColor, ':id' => $behaviorId]);
                 if ($oldCode && $oldCode !== $behaviorCode) {
                     $stmt = $pdo->prepare('UPDATE scheduled_calls SET number = :new WHERE number = :old');
                     $stmt->execute([':new' => $behaviorCode, ':old' => $oldCode]);
                 }
                 $message = 'Comportamiento actualizado.';
             } else {
-                $stmt = $pdo->prepare('INSERT INTO behaviors(name, code) VALUES (:name, :code)');
-                $stmt->execute([':name' => $behaviorName, ':code' => $behaviorCode]);
+                $stmt = $pdo->prepare('INSERT INTO behaviors(name, code, color) VALUES (:name, :code, :color)');
+                $stmt->execute([':name' => $behaviorName, ':code' => $behaviorCode, ':color' => $behaviorColor]);
                 $message = 'Comportamiento guardado.';
             }
         } else {
-            $message = 'Nombre y código son obligatorios.';
+            $message = 'Nombre, código y color son obligatorios.';
         }
     } elseif ($action === 'delete_behavior') {
         $behaviorId = intval($_POST['behavior_id'] ?? 0);
         if ($behaviorId) {
-            $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
+        $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
             $stmt->execute([':id' => $behaviorId]);
             $behaviorCode = $stmt->fetchColumn();
             if ($behaviorCode !== false) {
@@ -187,7 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-$behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->fetchAll();
+$behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY name')->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -277,6 +282,10 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
                 <label for="behavior_code" class="form-label">Código</label>
                 <input type="text" class="form-control" name="behavior_code" id="behavior_code" value="<?= htmlspecialchars($editBehavior['code'] ?? '') ?>" required>
             </div>
+            <div class="col">
+                <label for="behavior_color" class="form-label">Color</label>
+                <input type="color" class="form-control form-control-color" name="behavior_color" id="behavior_color" value="<?= htmlspecialchars($editBehavior['color'] ?? '#0d6efd') ?>" required>
+            </div>
         </div>
         <button type="submit" class="btn btn-secondary"><?= $editBehavior ? 'Actualizar comportamiento' : 'Guardar comportamiento' ?></button>
         <?php if ($editBehavior): ?>
@@ -286,12 +295,13 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
 
     <?php if ($behaviors): ?>
     <table class="table table-striped">
-        <thead><tr><th>Nombre</th><th>Código</th><th>Acciones</th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Código</th><th>Color</th><th>Acciones</th></tr></thead>
         <tbody>
         <?php foreach ($behaviors as $c): ?>
             <tr>
                 <td><?= htmlspecialchars($c['name']) ?></td>
                 <td><?= htmlspecialchars($c['code']) ?></td>
+                <td><span class="badge" style="background-color: <?= htmlspecialchars($c['color']) ?>;">&nbsp;&nbsp;&nbsp;</span></td>
                 <td>
                     <a class="btn btn-sm btn-primary" href="config.php?edit_id=<?= $c['id'] ?>">Editar</a>
                     <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar comportamiento?');">

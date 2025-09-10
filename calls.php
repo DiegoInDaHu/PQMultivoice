@@ -63,8 +63,12 @@ try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_secure VARCHAR(10) DEFAUL
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    code VARCHAR(255) NOT NULL UNIQUE
+    code VARCHAR(255) NOT NULL UNIQUE,
+    color VARCHAR(7) DEFAULT "#0d6efd"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+try {
+    $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
+} catch (PDOException $e) {}
 
 $settings = $pdo->query('SELECT api_key, default_extension, notification_email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
