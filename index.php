@@ -96,6 +96,7 @@ flatpickr("#calendar", {
         });
     }
 });
+document.getElementById('calendar').style.display = 'none';
 </script>
 </body>
 </html>
