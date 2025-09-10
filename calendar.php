@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'save_dates') {
         $dates = $_POST['dates'] ?? '';
-        $time = trim($_POST['time'] ?? '00:00');
+        $time = trim($_POST['time'] ?? '21:00');
         if ($extension !== '' && $number !== '' && $time !== '') {
             $pdo->prepare('DELETE FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL')
                 ->execute([':extension' => $extension, ':number' => $number]);
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $selectedDates = [];
-$selectedTime = '00:00';
+$selectedTime = '21:00';
 if ($extension !== '' && $number !== '') {
     $stmt = $pdo->prepare('SELECT DATE(scheduled_at) AS d, TIME(scheduled_at) AS t FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL');
     $stmt->execute([':extension' => $extension, ':number' => $number]);
@@ -134,6 +134,7 @@ foreach ($allScheduled as $row) {
         <a class="navbar-brand" href="#">Marcación Siptize</a>
         <div class="navbar-nav">
             <a class="nav-link" href="index.php">Historial</a>
+            <a class="nav-link" href="calls.php">Llamadas</a>
             <a class="nav-link" href="config.php">Configuración</a>
             <a class="nav-link active" href="calendar.php">Calendario</a>
         </div>
@@ -220,7 +221,7 @@ document.getElementById('number').addEventListener('change', function() {
         .then(function(response) { return response.json(); })
         .then(function(data) {
             selectedDates = data.dates || [];
-            document.getElementById('time').value = data.time || '00:00';
+            document.getElementById('time').value = data.time || '21:00';
             fp.setDate(selectedDates, false);
             document.getElementById('dates').value = selectedDates.join(',');
         });

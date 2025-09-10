@@ -16,14 +16,6 @@ $options = [
 
 $pdo = new PDO($dsn, $user, $pass, $options);
 
-// Ensure required tables exist
-$pdo->exec('CREATE TABLE IF NOT EXISTS calls (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    extension VARCHAR(255) NOT NULL,
-    number VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
     extension VARCHAR(255) NOT NULL,
@@ -55,8 +47,6 @@ $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
 
 $message = '';
-$extension = trim($_POST['extension'] ?? $_GET['extension'] ?? $defaultExtension);
-$number = trim($_POST['number'] ?? $_GET['number'] ?? '');
 
 $editId = intval($_GET['edit_id'] ?? 0);
 $editCode = null;
@@ -77,28 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $apiKey = $newKey;
         $defaultExtension = $newDefault;
         $message = 'Configuración actualizada.';
-    } elseif ($action === 'call_now') {
-        if ($apiKey === '') {
-            $message = 'API key no configurada.';
-        } elseif ($extension !== '' && $number !== '') {
-            $url = "https://vpbx.me/api/originatecall/" . urlencode($extension) . "/" . urlencode($number) . "?timeout=20&autoAnswer=true";
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                'Content-type: application/json',
-                'X-Api-Key: ' . $apiKey
-            ]);
-            $response = curl_exec($ch);
-            $error = curl_error($ch);
-            curl_close($ch);
-
-            $stmt = $pdo->prepare('INSERT INTO calls(extension, number) VALUES (:extension, :number)');
-            $stmt->execute([':extension' => $extension, ':number' => $number]);
-
-            $message = $error ? "Error: $error" : "API response: $response";
-        } else {
-            $message = 'Both extension and code are required.';
-        }
     } elseif ($action === 'save_code') {
         $codeId = intval($_POST['code_id'] ?? 0);
         $codeName = trim($_POST['code_name'] ?? '');
@@ -153,6 +121,7 @@ $codes = $pdo->query('SELECT id, name, code FROM codes ORDER BY name')->fetchAll
         <a class="navbar-brand" href="#">Marcación Siptize</a>
         <div class="navbar-nav">
             <a class="nav-link" href="index.php">Historial</a>
+            <a class="nav-link" href="calls.php">Llamadas</a>
             <a class="nav-link active" href="config.php">Configuración</a>
             <a class="nav-link" href="calendar.php">Calendario</a>
         </div>
@@ -175,22 +144,6 @@ $codes = $pdo->query('SELECT id, name, code FROM codes ORDER BY name')->fetchAll
             <input type="text" class="form-control" name="default_extension" id="default_extension" value="<?= htmlspecialchars($defaultExtension) ?>">
         </div>
         <button type="submit" class="btn btn-secondary">Guardar configuración</button>
-    </form>
-
-    <h2>Llamada inmediata</h2>
-    <form method="post" class="mb-5">
-        <input type="hidden" name="action" value="call_now">
-        <div class="row mb-3">
-            <div class="col">
-                <label for="extension" class="form-label">Extensión</label>
-                <input type="text" class="form-control" name="extension" id="extension" value="<?= htmlspecialchars($extension) ?>" required>
-            </div>
-            <div class="col">
-                <label for="number" class="form-label">Código</label>
-                <input type="text" class="form-control" name="number" id="number" value="<?= htmlspecialchars($number) ?>" required>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-primary">Llamar</button>
     </form>
 
     <h2>Códigos</h2>
