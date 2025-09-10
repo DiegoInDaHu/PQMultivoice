@@ -1,30 +1,10 @@
 <?php
-// Allow timezone configuration via APP_TZ environment variable (defaults to Europe/Madrid)
-$timezone = getenv('APP_TZ') ?: 'Europe/Madrid';
-date_default_timezone_set($timezone);
+require __DIR__ . '/db.php';
 // Execute scheduled calls due at the current time
-
-$host = getenv('DB_HOST') ?: 'localhost';
-$db   = getenv('DB_NAME') ?: 'pqmultivoice';
-$user = getenv('DB_USER') ?: 'root';
-$pass = getenv('DB_PASS') ?: 'terminal';
-$charset = 'utf8mb4';
 
 require __DIR__ . '/vendor/autoload.php';
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES   => false,
-];
-
-$pdo = new PDO($dsn, $user, $pass, $options);
-$tz = new DateTimeZone($timezone);
-$offset = (new DateTime('now', $tz))->format('P');
-$pdo->exec("SET time_zone = '$offset'");
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -87,11 +67,20 @@ if (!$apiKey) {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT id, extension, number FROM scheduled_calls WHERE executed_at IS NULL AND scheduled_at <= NOW()');
+$stmt = $pdo->prepare('SELECT id, extension, number, scheduled_at FROM scheduled_calls WHERE executed_at IS NULL AND scheduled_at <= NOW() ORDER BY scheduled_at');
 $stmt->execute();
 $calls = $stmt->fetchAll();
 
 foreach ($calls as $call) {
+    $lastStmt = $pdo->prepare('SELECT number FROM scheduled_calls WHERE extension = :ext AND executed_at IS NOT NULL AND scheduled_at < :sched ORDER BY scheduled_at DESC LIMIT 1');
+    $lastStmt->execute([':ext' => $call['extension'], ':sched' => $call['scheduled_at']]);
+    $lastNumber = $lastStmt->fetchColumn();
+    if ($lastNumber !== false && $lastNumber === $call['number']) {
+        $pdo->prepare('UPDATE scheduled_calls SET executed_at = NOW() WHERE id = :id')->execute([':id' => $call['id']]);
+        echo "Skipping {$call['id']}: repeated behavior\n";
+        continue;
+    }
+
     $url = "https://vpbx.me/api/originatecall/" . urlencode($call['extension']) . "/" . urlencode($call['number']) . "?timeout=20&autoAnswer=true";
 
     $ch = curl_init($url);
