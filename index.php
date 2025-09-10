@@ -46,6 +46,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
         <div class="navbar-nav">
             <a class="nav-link active" href="index.php">Historial</a>
             <a class="nav-link" href="config.php">Configuración</a>
+            <a class="nav-link" href="calendar.php">Calendario</a>
         </div>
     </div>
 </nav>
@@ -74,7 +75,7 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
                 <td><?= htmlspecialchars($row['number']) ?></td>
                 <td><?= htmlspecialchars($row['scheduled_at']) ?></td>
                 <td><?= htmlspecialchars($row['executed_at'] ?? '-') ?></td>
-                <td><a class="btn btn-sm btn-primary" href="config.php?extension=<?= urlencode($row['extension']) ?>&number=<?= urlencode($row['number']) ?>">Editar</a></td>
+                <td><a class="btn btn-sm btn-primary" href="calendar.php?extension=<?= urlencode($row['extension']) ?>&number=<?= urlencode($row['number']) ?>">Editar</a></td>
             </tr>
         <?php endforeach; ?>
         </tbody>

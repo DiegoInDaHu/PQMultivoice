@@ -27,8 +27,13 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     id INT PRIMARY KEY,
-    api_key VARCHAR(255) NOT NULL
+    api_key VARCHAR(255) NOT NULL,
+    default_extension VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+try {
+    $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {
+}
 
 $apiKey = $pdo->query('SELECT api_key FROM settings WHERE id = 1')->fetchColumn();
 
