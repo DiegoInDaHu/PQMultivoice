@@ -25,14 +25,12 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     code VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_periods (
+$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
     id INT AUTO_INCREMENT PRIMARY KEY,
     behavior_id INT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL
+    day DATE NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-$allPeriods = $pdo->query('SELECT bp.start_date, bp.end_date, b.code, b.name FROM behavior_periods bp JOIN behaviors b ON bp.behavior_id = b.id')->fetchAll();
+$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
 $codeSchedules = [];
 $codeColors = [];
 $palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
@@ -44,11 +42,7 @@ foreach ($allPeriods as $row) {
         $codeColors[$code] = $palette[$ci % count($palette)];
         $ci++;
     }
-    $start = new DateTime($row['start_date']);
-    $end = new DateTime($row['end_date']);
-    for ($d = $start; $d <= $end; $d->modify('+1 day')) {
-        $codeSchedules[$code]['dates'][] = $d->format('Y-m-d');
-    }
+    $codeSchedules[$code]['dates'][] = $row['day'];
 }
 ?>
 <!DOCTYPE html>

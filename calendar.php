@@ -51,11 +51,10 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     code VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_periods (
+$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
     id INT AUTO_INCREMENT PRIMARY KEY,
     behavior_id INT NOT NULL,
-    start_date DATE NOT NULL,
-    end_date DATE NOT NULL
+    day DATE NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
 $settings = $pdo->query('SELECT default_extension, execution_time FROM settings WHERE id = 1')->fetch() ?: [];
@@ -74,14 +73,14 @@ function reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime)
         return;
     }
     $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code AND executed_at IS NULL')->execute([':code' => $code]);
-    $periods = $pdo->prepare('SELECT start_date FROM behavior_periods WHERE behavior_id = :id');
+    $periods = $pdo->prepare('SELECT day FROM behavior_days WHERE behavior_id = :id');
     $periods->execute([':id' => $behaviorId]);
     foreach ($periods as $p) {
         $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
             ->execute([
                 ':ext' => $defaultExtension,
                 ':num' => $code,
-                ':sched' => $p['start_date'] . ' ' . $executionTime . ':00'
+                ':sched' => $p['day'] . ' ' . $executionTime . ':00'
             ]);
     }
 }
@@ -94,18 +93,26 @@ $behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'add_period') {
-        $start = $_POST['start_date'] ?? '';
-        $end = $_POST['end_date'] ?? '';
-        if ($behaviorId && $start !== '' && $end !== '' && $defaultExtension !== '') {
-            $check = $pdo->prepare('SELECT COUNT(*) FROM behavior_periods WHERE NOT (end_date < :start OR start_date > :end)');
-            $check->execute([':start' => $start, ':end' => $end]);
-            if ($check->fetchColumn() > 0) {
-                $message = 'Periodo solapado con otro comportamiento.';
-            } else {
-                $pdo->prepare('INSERT INTO behavior_periods(behavior_id, start_date, end_date) VALUES (:id, :start, :end)')
-                    ->execute([':id' => $behaviorId, ':start' => $start, ':end' => $end]);
+        $datesStr = trim($_POST['dates'] ?? '');
+        $dates = $datesStr !== '' ? array_filter(array_map('trim', explode(',', $datesStr))) : [];
+        if ($behaviorId && $dates && $defaultExtension !== '') {
+            $overlap = false;
+            $check = $pdo->prepare('SELECT COUNT(*) FROM behavior_days WHERE day = :day');
+            foreach ($dates as $d) {
+                $check->execute([':day' => $d]);
+                if ($check->fetchColumn() > 0) {
+                    $message = 'Día ' . htmlspecialchars($d) . ' solapado con otro comportamiento.';
+                    $overlap = true;
+                    break;
+                }
+            }
+            if (!$overlap) {
+                $ins = $pdo->prepare('INSERT INTO behavior_days(behavior_id, day) VALUES (:id, :day)');
+                foreach ($dates as $d) {
+                    $ins->execute([':id' => $behaviorId, ':day' => $d]);
+                }
                 reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
-                $message = 'Periodo agregado.';
+                $message = 'Días agregados.';
             }
         } else {
             $message = 'Todos los campos son obligatorios.';
@@ -113,7 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete_period') {
         $periodId = intval($_POST['period_id'] ?? 0);
         if ($behaviorId && $periodId) {
-            $pdo->prepare('DELETE FROM behavior_periods WHERE id = :pid AND behavior_id = :bid')
+            $pdo->prepare('DELETE FROM behavior_days WHERE id = :pid AND behavior_id = :bid')
                 ->execute([':pid' => $periodId, ':bid' => $behaviorId]);
             reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
             $message = 'Periodo eliminado.';
@@ -121,11 +128,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$stmt = $pdo->prepare('SELECT id, start_date, end_date FROM behavior_periods WHERE behavior_id = :id ORDER BY start_date');
+$stmt = $pdo->prepare('SELECT id, day FROM behavior_days WHERE behavior_id = :id ORDER BY day');
 $stmt->execute([':id' => $behaviorId]);
-$behaviorPeriods = $stmt->fetchAll();
-
-$allPeriods = $pdo->query('SELECT bp.start_date, bp.end_date, b.code, b.name FROM behavior_periods bp JOIN behaviors b ON bp.behavior_id = b.id')->fetchAll();
+$behaviorDays = $stmt->fetchAll();
+$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
 $behaviorSchedules = [];
 $behaviorColors = [];
 $palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
@@ -137,11 +143,7 @@ foreach ($allPeriods as $row) {
         $behaviorColors[$code] = $palette[$ci % count($palette)];
         $ci++;
     }
-    $start = new DateTime($row['start_date']);
-    $end = new DateTime($row['end_date']);
-    for ($d = $start; $d <= $end; $d->modify('+1 day')) {
-        $behaviorSchedules[$code]['dates'][] = $d->format('Y-m-d');
-    }
+    $behaviorSchedules[$code]['dates'][] = $row['day'];
 }
 ?>
 <!DOCTYPE html>
@@ -185,19 +187,18 @@ foreach ($allPeriods as $row) {
             </div>
         </div>
         <div class="mb-3">
-            <label for="rangePicker" class="form-label">Periodo</label>
-            <input type="text" id="rangePicker" class="form-control">
-            <input type="hidden" name="start_date" id="start_date">
-            <input type="hidden" name="end_date" id="end_date">
+            <label for="datePicker" class="form-label">Días</label>
+            <input type="text" id="datePicker" class="form-control">
+            <input type="hidden" name="dates" id="dates">
         </div>
-        <button type="submit" class="btn btn-success">Añadir periodo</button>
+        <button type="submit" class="btn btn-success">Añadir días</button>
     </form>
 
-    <?php if ($behaviorPeriods): ?>
+    <?php if ($behaviorDays): ?>
     <ul class="list-group mb-3">
-        <?php foreach ($behaviorPeriods as $p): ?>
+        <?php foreach ($behaviorDays as $p): ?>
         <li class="list-group-item d-flex justify-content-between align-items-center">
-            <?= htmlspecialchars($p['start_date']) ?> a <?= htmlspecialchars($p['end_date']) ?>
+            <?= htmlspecialchars($p['day']) ?>
             <form method="post" class="ms-2">
                 <input type="hidden" name="action" value="delete_period">
                 <input type="hidden" name="behavior" value="<?= $behaviorId ?>">
@@ -223,14 +224,13 @@ foreach ($allPeriods as $row) {
 <script>
 var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
 var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
-flatpickr("#rangePicker", {
+flatpickr("#datePicker", {
     locale: "es",
-    mode: "range",
+    mode: "multiple",
     dateFormat: "Y-m-d",
     onChange: function(selDates, dateStr, instance) {
         var dates = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');});
-        document.getElementById('start_date').value = dates[0] || '';
-        document.getElementById('end_date').value = dates[1] || '';
+        document.getElementById('dates').value = dates.join(',');
     },
     onDayCreate: function(dObj, dStr, fp, dayElem) {
         var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
