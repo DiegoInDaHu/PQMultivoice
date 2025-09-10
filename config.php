@@ -90,6 +90,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $executionTime = $newTime;
         $notificationEmail = $newEmail;
         $message = 'Configuración actualizada.';
+    } elseif ($action === 'send_test_email') {
+        $email = trim($_POST['notification_email'] ?? '');
+        if ($email !== '') {
+            if (@mail($email, 'Prueba de notificación', 'Este es un mensaje de prueba.')) {
+                $message = 'Correo de prueba enviado.';
+            } else {
+                $message = 'Error al enviar el correo de prueba.';
+            }
+        } else {
+            $message = 'Correo no válido.';
+        }
+        $notificationEmail = $email;
     } elseif ($action === 'save_behavior') {
         $behaviorId = intval($_POST['behavior_id'] ?? 0);
         $behaviorName = trim($_POST['behavior_name'] ?? '');
@@ -167,7 +179,10 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
         </div>
         <div class="mb-3">
             <label for="notification_email" class="form-label">Correo de notificación</label>
-            <input type="email" class="form-control" name="notification_email" id="notification_email" value="<?= htmlspecialchars($notificationEmail) ?>">
+            <div class="input-group">
+                <input type="email" class="form-control" name="notification_email" id="notification_email" value="<?= htmlspecialchars($notificationEmail) ?>">
+                <button class="btn btn-outline-secondary" type="button" id="testEmailBtn">Probar</button>
+            </div>
         </div>
         <div class="mb-3">
             <label for="execution_time" class="form-label">Hora de ejecución</label>
@@ -221,5 +236,12 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
     <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.getElementById('testEmailBtn').addEventListener('click', function () {
+    var form = this.closest('form');
+    form.querySelector('input[name="action"]').value = 'send_test_email';
+    form.submit();
+});
+</script>
 </body>
 </html>
