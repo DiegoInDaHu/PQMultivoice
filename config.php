@@ -4,7 +4,7 @@ date_default_timezone_set($timezone);
 // Configuration page with multi-date calendar using Bootstrap and Flatpickr
 
 $host = getenv('DB_HOST') ?: 'localhost';
-$db   = getenv('DB_NAME') ?: 'multivoice';
+$db   = getenv('DB_NAME') ?: 'PQmulticoice';
 $user = getenv('DB_USER') ?: 'root';
 $pass = getenv('DB_PASS') ?: 'terminal';
 $charset = 'utf8mb4';
