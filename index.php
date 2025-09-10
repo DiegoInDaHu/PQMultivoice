@@ -78,7 +78,7 @@ foreach ($allPeriods as $row) {
     </div>
 </nav>
 <div class="container">
-    <h2 style="margin-bottom:20px">Calendario</h2>
+    <h2 class="d-flex justify-content-center mb-3">Calendario</h2>
     <div id="calendarWrapper" class="d-flex justify-content-center">
         <input type="text" id="calendar" class="form-control">
     </div>

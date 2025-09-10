@@ -132,10 +132,10 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
     <div class="container-fluid">
         <a class="navbar-brand" href="#">PQ Multivoice</a>
         <div class="navbar-nav">
-            <a class="nav-link active" href="index.php">Historial</a>
+            <a class="nav-link" href="index.php">Historial</a>
             <a class="nav-link" href="calendar.php">Calendario</a>
             <a class="nav-link" href="calls.php">Llamadas</a>
-            <a class="nav-link" href="config.php">Configuración</a>
+            <a class="nav-link active" href="config.php">Configuración</a>
         </div>
     </div>
 </nav>
