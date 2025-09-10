@@ -81,20 +81,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'save_dates') {
         $dates = $_POST['dates'] ?? '';
-        if ($extension !== '' && $number !== '' && $dates !== '') {
+        if ($extension !== '' && $number !== '') {
             $pdo->prepare('DELETE FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL')
                 ->execute([':extension' => $extension, ':number' => $number]);
 
-            $dateArray = array_filter(array_map('trim', explode(',', $dates)));
-            $insert = $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:extension, :number, :scheduled_at)');
-            foreach ($dateArray as $d) {
-                $insert->execute([
-                    ':extension' => $extension,
-                    ':number' => $number,
-                    ':scheduled_at' => $d . ' 00:00:00'
-                ]);
+            if ($dates !== '') {
+                $dateArray = array_filter(array_map('trim', explode(',', $dates)));
+                $insert = $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:extension, :number, :scheduled_at)');
+                foreach ($dateArray as $d) {
+                    $insert->execute([
+                        ':extension' => $extension,
+                        ':number' => $number,
+                        ':scheduled_at' => $d . ' 00:00:00'
+                    ]);
+                }
+                $message = 'Fechas actualizadas.';
+            } else {
+                $message = 'Fechas eliminadas.';
             }
-            $message = 'Fechas actualizadas.';
         } else {
             $message = 'Todos los campos son obligatorios.';
         }
