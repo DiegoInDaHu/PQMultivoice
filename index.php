@@ -19,34 +19,36 @@ $tz = new DateTimeZone($timezone);
 $offset = (new DateTime('now', $tz))->format('P');
 $pdo->exec("SET time_zone = '$offset'");
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    extension VARCHAR(255) NOT NULL,
-    number VARCHAR(255) NOT NULL,
-    scheduled_at DATETIME NOT NULL,
-    executed_at DATETIME DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-
-$pdo->exec('CREATE TABLE IF NOT EXISTS codes (
+$pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     code VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$allScheduled = $pdo->query('SELECT DATE(sc.scheduled_at) AS d, sc.number, c.name FROM scheduled_calls sc JOIN codes c ON sc.number = c.code WHERE sc.executed_at IS NULL')->fetchAll();
+$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_periods (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    behavior_id INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
+$allPeriods = $pdo->query('SELECT bp.start_date, bp.end_date, b.code, b.name FROM behavior_periods bp JOIN behaviors b ON bp.behavior_id = b.id')->fetchAll();
 $codeSchedules = [];
 $codeColors = [];
 $palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
 $ci = 0;
-foreach ($allScheduled as $row) {
-    $code = $row['number'];
+foreach ($allPeriods as $row) {
+    $code = $row['code'];
     if (!isset($codeSchedules[$code])) {
         $codeSchedules[$code] = ['name' => $row['name'], 'dates' => []];
         $codeColors[$code] = $palette[$ci % count($palette)];
         $ci++;
     }
-    $codeSchedules[$code]['dates'][] = $row['d'];
+    $start = new DateTime($row['start_date']);
+    $end = new DateTime($row['end_date']);
+    for ($d = $start; $d <= $end; $d->modify('+1 day')) {
+        $codeSchedules[$code]['dates'][] = $d->format('Y-m-d');
+    }
 }
 ?>
 <!DOCTYPE html>

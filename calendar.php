@@ -31,50 +31,72 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
 $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     id INT PRIMARY KEY,
     api_key VARCHAR(255) NOT NULL,
-    default_extension VARCHAR(255) DEFAULT NULL
+    default_extension VARCHAR(255) DEFAULT NULL,
+    execution_time VARCHAR(5) DEFAULT "21:00"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
-} catch (PDOException $e) {
-}
+} catch (PDOException $e) {}
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
+} catch (PDOException $e) {}
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS codes (
+$pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     code VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$settings = $pdo->query('SELECT default_extension FROM settings WHERE id = 1')->fetch() ?: [];
-$defaultExtension = $settings['default_extension'] ?? '';
+$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_periods (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    behavior_id INT NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$codes = $pdo->query('SELECT name, code FROM codes ORDER BY name')->fetchAll();
+$settings = $pdo->query('SELECT default_extension, execution_time FROM settings WHERE id = 1')->fetch() ?: [];
+$defaultExtension = $settings['default_extension'] ?? '';
+$executionTime = $settings['execution_time'] ?? '21:00';
+
+$behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->fetchAll();
 
 $message = '';
-$extension = trim($_POST['extension'] ?? $_GET['extension'] ?? $defaultExtension);
-$number = trim($_POST['number'] ?? $_GET['number'] ?? ($codes[0]['code'] ?? ''));
+$behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['id'] ?? 0));
+$period = null;
+if ($behaviorId) {
+    $stmt = $pdo->prepare('SELECT start_date, end_date FROM behavior_periods WHERE behavior_id = :id');
+    $stmt->execute([':id' => $behaviorId]);
+    $period = $stmt->fetch();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    if ($action === 'save_dates') {
-        $dates = $_POST['dates'] ?? '';
-        $time = trim($_POST['time'] ?? '21:00');
-        if ($extension !== '' && $number !== '' && $time !== '') {
-            $pdo->prepare('DELETE FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL')
-                ->execute([':extension' => $extension, ':number' => $number]);
-
-            if ($dates !== '') {
-                $dateArray = array_filter(array_map('trim', explode(',', $dates)));
-                $insert = $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:extension, :number, :scheduled_at)');
-                foreach ($dateArray as $d) {
-                    $insert->execute([
-                        ':extension' => $extension,
-                        ':number' => $number,
-                        ':scheduled_at' => $d . ' ' . $time . ':00'
-                    ]);
-                }
-                $message = 'Fechas actualizadas.';
+    if ($action === 'save_period') {
+        $start = $_POST['start_date'] ?? '';
+        $end = $_POST['end_date'] ?? '';
+        if ($behaviorId && $start !== '' && $end !== '' && $defaultExtension !== '') {
+            $check = $pdo->prepare('SELECT COUNT(*) FROM behavior_periods WHERE behavior_id <> :id AND NOT (end_date < :start OR start_date > :end)');
+            $check->execute([':id' => $behaviorId, ':start' => $start, ':end' => $end]);
+            if ($check->fetchColumn() > 0) {
+                $message = 'Periodo solapado con otro comportamiento.';
             } else {
-                $message = 'Fechas eliminadas.';
+                $pdo->prepare('DELETE FROM behavior_periods WHERE behavior_id = :id')->execute([':id' => $behaviorId]);
+                $pdo->prepare('INSERT INTO behavior_periods(behavior_id, start_date, end_date) VALUES (:id, :start, :end)')
+                    ->execute([':id' => $behaviorId, ':start' => $start, ':end' => $end]);
+                $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
+                $stmt->execute([':id' => $behaviorId]);
+                $code = $stmt->fetchColumn();
+                if ($code !== false) {
+                    $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code AND executed_at IS NULL')->execute([':code' => $code]);
+                    $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
+                        ->execute([
+                            ':ext' => $defaultExtension,
+                            ':num' => $code,
+                            ':sched' => $start . ' ' . $executionTime . ':00'
+                        ]);
+                }
+                $message = 'Periodo actualizado.';
+                $period = ['start_date' => $start, 'end_date' => $end];
             }
         } else {
             $message = 'Todos los campos son obligatorios.';
@@ -82,43 +104,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$selectedDates = [];
-$selectedTime = '21:00';
-$executionHistory = [];
-if ($extension !== '' && $number !== '') {
-    $stmt = $pdo->prepare('SELECT DATE(scheduled_at) AS d, TIME(scheduled_at) AS t FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL');
-    $stmt->execute([':extension' => $extension, ':number' => $number]);
-    $rows = $stmt->fetchAll();
-    $selectedDates = array_column($rows, 'd');
-    if ($rows) {
-        $selectedTime = substr($rows[0]['t'], 0, 5);
-    }
-
-    $histStmt = $pdo->prepare('SELECT executed_at FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NOT NULL ORDER BY executed_at DESC');
-    $histStmt->execute([':extension' => $extension, ':number' => $number]);
-    $executionHistory = $histStmt->fetchAll();
-}
-
-if (isset($_GET['ajax'])) {
-    header('Content-Type: application/json');
-    echo json_encode(['dates' => $selectedDates, 'time' => $selectedTime]);
-    exit;
-}
-
-$allScheduled = $pdo->query('SELECT DATE(sc.scheduled_at) AS d, sc.number, c.name FROM scheduled_calls sc JOIN codes c ON sc.number = c.code WHERE sc.executed_at IS NULL')->fetchAll();
-$codeSchedules = [];
-$codeColors = [];
+$allPeriods = $pdo->query('SELECT bp.start_date, bp.end_date, b.code, b.name FROM behavior_periods bp JOIN behaviors b ON bp.behavior_id = b.id')->fetchAll();
+$behaviorSchedules = [];
+$behaviorColors = [];
 $palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
 $ci = 0;
-foreach ($allScheduled as $row) {
-    $code = $row['number'];
-    if (!isset($codeSchedules[$code])) {
-        $codeSchedules[$code] = ['name' => $row['name'], 'dates' => []];
-        $codeColors[$code] = $palette[$ci % count($palette)];
+foreach ($allPeriods as $row) {
+    $code = $row['code'];
+    if (!isset($behaviorSchedules[$code])) {
+        $behaviorSchedules[$code] = ['name' => $row['name'], 'dates' => []];
+        $behaviorColors[$code] = $palette[$ci % count($palette)];
         $ci++;
     }
-    $codeSchedules[$code]['dates'][] = $row['d'];
+    $start = new DateTime($row['start_date']);
+    $end = new DateTime($row['end_date']);
+    for ($d = $start; $d <= $end; $d->modify('+1 day')) {
+        $behaviorSchedules[$code]['dates'][] = $d->format('Y-m-d');
+    }
 }
+
+$selectedStart = $period['start_date'] ?? '';
+$selectedEnd = $period['end_date'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -127,16 +133,6 @@ foreach ($allScheduled as $row) {
     <title>Calendario</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
-    <style>
-    .schedule-dot{
-        position:absolute;
-        width:6px;
-        height:6px;
-        border-radius:50%;
-        bottom:2px;
-        right:2px;
-    }
-    </style>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
@@ -154,95 +150,65 @@ foreach ($allScheduled as $row) {
 <?php if ($message): ?>
     <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
-<?php if (!$codes): ?>
-    <p>No hay códigos guardados. Agregue uno en Configuración.</p>
+<?php if (!$behaviors): ?>
+    <p>No hay comportamientos guardados. Agregue uno en Configuración.</p>
 <?php else: ?>
     <h2>Configurar calendario</h2>
     <form method="post">
-        <input type="hidden" name="action" value="save_dates">
+        <input type="hidden" name="action" value="save_period">
         <div class="row mb-3">
             <div class="col">
-                <label for="extension" class="form-label">Extensión</label>
-                <input type="text" class="form-control" name="extension" id="extension" value="<?= htmlspecialchars($extension) ?>" required>
-            </div>
-            <div class="col">
-                <label for="number" class="form-label">Código</label>
-                <select class="form-select" name="number" id="number" required>
-                    <?php foreach ($codes as $code): ?>
-                        <option value="<?= htmlspecialchars($code['code']) ?>" <?= $code['code'] === $number ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($code['name']) ?>
-                        </option>
+                <label for="behavior" class="form-label">Comportamiento</label>
+                <select class="form-select" name="behavior" id="behavior" onchange="location='calendar.php?behavior='+this.value;">
+                    <?php foreach ($behaviors as $b): ?>
+                        <option value="<?= $b['id'] ?>" <?= $b['id']==$behaviorId ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col">
-                <label for="time" class="form-label">Hora</label>
-                <input type="time" class="form-control" name="time" id="time" value="<?= htmlspecialchars($selectedTime) ?>" required>
-            </div>
         </div>
         <div class="mb-3">
-            <label for="datePicker" class="form-label">Fechas</label>
-            <input type="text" id="datePicker" class="form-control">
-            <input type="hidden" name="dates" id="dates">
+            <label for="rangePicker" class="form-label">Periodo</label>
+            <input type="text" id="rangePicker" class="form-control">
+            <input type="hidden" name="start_date" id="start_date" value="<?= htmlspecialchars($selectedStart) ?>">
+            <input type="hidden" name="end_date" id="end_date" value="<?= htmlspecialchars($selectedEnd) ?>">
         </div>
-        <button type="submit" class="btn btn-success">Guardar fechas</button>
+        <button type="submit" class="btn btn-success">Guardar periodo</button>
     </form>
     <div class="mt-3">
-        <?php foreach ($codeColors as $code => $color): ?>
+        <?php foreach ($behaviorColors as $code => $color): ?>
             <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
-            <?= htmlspecialchars($codeSchedules[$code]['name']) ?>&nbsp;
+            <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
         <?php endforeach; ?>
     </div>
-    <?php if ($executionHistory): ?>
-    <h3 class="mt-4">Historial de ejecuciones</h3>
-    <ul class="list-group">
-        <?php foreach ($executionHistory as $row): ?>
-            <li class="list-group-item"><?= htmlspecialchars($row['executed_at']) ?></li>
-        <?php endforeach; ?>
-    </ul>
-    <?php endif; ?>
 <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 <script>
-var selectedDates = <?php echo json_encode($selectedDates); ?>;
-var codeSchedules = <?php echo json_encode($codeSchedules); ?>;
-var codeColors = <?php echo json_encode($codeColors); ?>;
-var fp = flatpickr("#datePicker", {
+var selectedStart = "<?= $selectedStart ?>";
+var selectedEnd = "<?= $selectedEnd ?>";
+var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
+var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
+flatpickr("#rangePicker", {
     locale: "es",
-    mode: "multiple",
+    mode: "range",
     dateFormat: "Y-m-d",
-    defaultDate: selectedDates,
+    defaultDate: selectedStart && selectedEnd ? [selectedStart, selectedEnd] : [],
     onChange: function(selDates, dateStr, instance) {
-        document.getElementById('dates').value = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');}).join(',');
+        var dates = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');});
+        document.getElementById('start_date').value = dates[0] || '';
+        document.getElementById('end_date').value = dates[1] || '';
     },
     onDayCreate: function(dObj, dStr, fp, dayElem) {
         var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
-        Object.keys(codeSchedules).forEach(function(code) {
-            if (codeSchedules[code].dates.indexOf(date) !== -1) {
-                var span = document.createElement('span');
-                span.className = 'schedule-dot';
-                span.style.backgroundColor = codeColors[code];
-                dayElem.appendChild(span);
+        Object.keys(behaviorSchedules).forEach(function(code) {
+            if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
+                dayElem.style.backgroundColor = behaviorColors[code];
+                dayElem.style.color = '#fff';
             }
         });
     }
-});
-document.getElementById('dates').value = selectedDates.join(',');
-
-document.getElementById('number').addEventListener('change', function() {
-    var number = this.value;
-    var extension = document.getElementById('extension').value;
-    fetch('calendar.php?ajax=1&extension=' + encodeURIComponent(extension) + '&number=' + encodeURIComponent(number))
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
-            selectedDates = data.dates || [];
-            document.getElementById('time').value = data.time || '21:00';
-            fp.setDate(selectedDates, false);
-            document.getElementById('dates').value = selectedDates.join(',');
-        });
 });
 </script>
 </body>

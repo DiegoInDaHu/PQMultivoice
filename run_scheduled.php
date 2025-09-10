@@ -40,6 +40,10 @@ try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {
 }
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
+} catch (PDOException $e) {
+}
 
 $apiKey = $pdo->query('SELECT api_key FROM settings WHERE id = 1')->fetchColumn();
 
