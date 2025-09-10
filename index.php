@@ -56,6 +56,12 @@ foreach ($allScheduled as $row) {
     <title>Historial</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <style>
+    #calendarWrapper .flatpickr-calendar {
+        transform: scale(1.3);
+        transform-origin: top center;
+    }
+    </style>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
@@ -71,7 +77,9 @@ foreach ($allScheduled as $row) {
 </nav>
 <div class="container">
     <h2 style="margin-bottom:20px">Calendario</h2>
-    <input type="text" id="calendar" class="form-control">
+    <div id="calendarWrapper" class="d-flex justify-content-center">
+        <input type="text" id="calendar" class="form-control">
+    </div>
     <div class="mt-3">
         <?php foreach ($codeColors as $code => $color): ?>
             <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
