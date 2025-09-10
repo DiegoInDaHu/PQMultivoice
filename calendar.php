@@ -89,6 +89,12 @@ if ($extension !== '' && $number !== '') {
     }
 }
 
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['dates' => $selectedDates, 'time' => $selectedTime]);
+    exit;
+}
+
 $allScheduled = $pdo->query('SELECT DATE(sc.scheduled_at) AS d, sc.number, c.name FROM scheduled_calls sc JOIN codes c ON sc.number = c.code WHERE sc.executed_at IS NULL')->fetchAll();
 $codeSchedules = [];
 $codeColors = [];
@@ -185,7 +191,7 @@ foreach ($allScheduled as $row) {
 var selectedDates = <?php echo json_encode($selectedDates); ?>;
 var codeSchedules = <?php echo json_encode($codeSchedules); ?>;
 var codeColors = <?php echo json_encode($codeColors); ?>;
-flatpickr("#datePicker", {
+var fp = flatpickr("#datePicker", {
     locale: "es",
     mode: "multiple",
     dateFormat: "Y-m-d",
@@ -206,6 +212,19 @@ flatpickr("#datePicker", {
     }
 });
 document.getElementById('dates').value = selectedDates.join(',');
+
+document.getElementById('number').addEventListener('change', function() {
+    var number = this.value;
+    var extension = document.getElementById('extension').value;
+    fetch('calendar.php?ajax=1&extension=' + encodeURIComponent(extension) + '&number=' + encodeURIComponent(number))
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            selectedDates = data.dates || [];
+            document.getElementById('time').value = data.time || '00:00';
+            fp.setDate(selectedDates, false);
+            document.getElementById('dates').value = selectedDates.join(',');
+        });
+});
 </script>
 </body>
 </html>
