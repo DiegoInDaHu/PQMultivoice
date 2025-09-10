@@ -91,40 +91,32 @@ $message = '';
 $behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['id'] ?? 0));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = $_POST['action'] ?? '';
-    if ($action === 'add_period') {
-        $datesStr = trim($_POST['dates'] ?? '');
-        $dates = $datesStr !== '' ? array_filter(array_map('trim', explode(',', $datesStr))) : [];
-        if ($behaviorId && $dates && $defaultExtension !== '') {
-            $overlap = false;
-            $check = $pdo->prepare('SELECT COUNT(*) FROM behavior_days WHERE day = :day');
+    $datesStr = trim($_POST['dates'] ?? '');
+    $dates = $datesStr !== '' ? array_filter(array_map('trim', explode(',', $datesStr))) : [];
+    if ($behaviorId && $defaultExtension !== '') {
+        $overlap = false;
+        $check = $pdo->prepare('SELECT behavior_id FROM behavior_days WHERE day = :day');
+        foreach ($dates as $d) {
+            $check->execute([':day' => $d]);
+            $existing = $check->fetchColumn();
+            if ($existing && intval($existing) !== $behaviorId) {
+                $message = 'Día ' . htmlspecialchars($d) . ' solapado con otro comportamiento.';
+                $overlap = true;
+                break;
+            }
+        }
+        if (!$overlap) {
+            $pdo->prepare('DELETE FROM behavior_days WHERE behavior_id = :bid')
+                ->execute([':bid' => $behaviorId]);
+            $ins = $pdo->prepare('INSERT INTO behavior_days(behavior_id, day) VALUES (:id, :day)');
             foreach ($dates as $d) {
-                $check->execute([':day' => $d]);
-                if ($check->fetchColumn() > 0) {
-                    $message = 'Día ' . htmlspecialchars($d) . ' solapado con otro comportamiento.';
-                    $overlap = true;
-                    break;
-                }
+                $ins->execute([':id' => $behaviorId, ':day' => $d]);
             }
-            if (!$overlap) {
-                $ins = $pdo->prepare('INSERT INTO behavior_days(behavior_id, day) VALUES (:id, :day)');
-                foreach ($dates as $d) {
-                    $ins->execute([':id' => $behaviorId, ':day' => $d]);
-                }
-                reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
-                $message = 'Días agregados.';
-            }
-        } else {
-            $message = 'Todos los campos son obligatorios.';
-        }
-    } elseif ($action === 'delete_period') {
-        $periodId = intval($_POST['period_id'] ?? 0);
-        if ($behaviorId && $periodId) {
-            $pdo->prepare('DELETE FROM behavior_days WHERE id = :pid AND behavior_id = :bid')
-                ->execute([':pid' => $periodId, ':bid' => $behaviorId]);
             reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
-            $message = 'Periodo eliminado.';
+            $message = 'Días actualizados.';
         }
+    } else {
+        $message = 'Todos los campos son obligatorios.';
     }
 }
 
@@ -175,7 +167,6 @@ foreach ($allPeriods as $row) {
 <?php else: ?>
     <h2>Configurar calendario</h2>
     <form method="post" class="mb-3">
-        <input type="hidden" name="action" value="add_period">
         <div class="row mb-3">
             <div class="col">
                 <label for="behavior" class="form-label">Comportamiento</label>
@@ -191,24 +182,8 @@ foreach ($allPeriods as $row) {
             <input type="text" id="datePicker" class="form-control">
             <input type="hidden" name="dates" id="dates">
         </div>
-        <button type="submit" class="btn btn-success">Añadir días</button>
+        <button type="submit" class="btn btn-success">Guardar días</button>
     </form>
-
-    <?php if ($behaviorDays): ?>
-    <ul class="list-group mb-3">
-        <?php foreach ($behaviorDays as $p): ?>
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            <?= htmlspecialchars($p['day']) ?>
-            <form method="post" class="ms-2">
-                <input type="hidden" name="action" value="delete_period">
-                <input type="hidden" name="behavior" value="<?= $behaviorId ?>">
-                <input type="hidden" name="period_id" value="<?= $p['id'] ?>">
-                <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
-            </form>
-        </li>
-        <?php endforeach; ?>
-    </ul>
-    <?php endif; ?>
 
     <div class="mt-3">
         <?php foreach ($behaviorColors as $code => $color): ?>
@@ -224,10 +199,13 @@ foreach ($allPeriods as $row) {
 <script>
 var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
 var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
+var existingDates = <?php echo json_encode(array_column($behaviorDays, 'day')); ?>;
+document.getElementById('dates').value = existingDates.join(',');
 flatpickr("#datePicker", {
     locale: "es",
     mode: "multiple",
     dateFormat: "Y-m-d",
+    defaultDate: existingDates,
     onChange: function(selDates, dateStr, instance) {
         var dates = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');});
         document.getElementById('dates').value = dates.join(',');
