@@ -60,17 +60,17 @@ foreach ($allScheduled as $row) {
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">Marcación Siptize</a>
+        <a class="navbar-brand" href="#">PQ Multivoice</a>
         <div class="navbar-nav">
             <a class="nav-link active" href="index.php">Historial</a>
+            <a class="nav-link" href="calendar.php">Calendario</a>
             <a class="nav-link" href="calls.php">Llamadas</a>
             <a class="nav-link" href="config.php">Configuración</a>
-            <a class="nav-link" href="calendar.php">Calendario</a>
         </div>
     </div>
 </nav>
 <div class="container">
-    <h2>Calendario de llamadas programadas</h2>
+    <h2 style="margin-bottom:20px">Calendario</h2>
     <input type="text" id="calendar" class="form-control">
     <div class="mt-3">
         <?php foreach ($codeColors as $code => $color): ?>

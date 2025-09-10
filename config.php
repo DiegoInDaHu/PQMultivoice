@@ -123,12 +123,12 @@ $codes = $pdo->query('SELECT id, name, code FROM codes ORDER BY name')->fetchAll
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
     <div class="container-fluid">
-        <a class="navbar-brand" href="#">Marcación Siptize</a>
+        <a class="navbar-brand" href="#">PQ Multivoice</a>
         <div class="navbar-nav">
-            <a class="nav-link" href="index.php">Historial</a>
-            <a class="nav-link" href="calls.php">Llamadas</a>
-            <a class="nav-link active" href="config.php">Configuración</a>
+            <a class="nav-link active" href="index.php">Historial</a>
             <a class="nav-link" href="calendar.php">Calendario</a>
+            <a class="nav-link" href="calls.php">Llamadas</a>
+            <a class="nav-link" href="config.php">Configuración</a>
         </div>
     </div>
 </nav>
