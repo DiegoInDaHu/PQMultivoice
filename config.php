@@ -58,6 +58,14 @@ $message = '';
 $extension = trim($_POST['extension'] ?? $_GET['extension'] ?? $defaultExtension);
 $number = trim($_POST['number'] ?? $_GET['number'] ?? '');
 
+$editId = intval($_GET['edit_id'] ?? 0);
+$editCode = null;
+if ($editId) {
+    $stmt = $pdo->prepare('SELECT id, name, code FROM codes WHERE id = :id');
+    $stmt->execute([':id' => $editId]);
+    $editCode = $stmt->fetch();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
@@ -92,19 +100,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = 'Both extension and code are required.';
         }
     } elseif ($action === 'save_code') {
+        $codeId = intval($_POST['code_id'] ?? 0);
         $codeName = trim($_POST['code_name'] ?? '');
         $codeValue = trim($_POST['code_value'] ?? '');
         if ($codeName !== '' && $codeValue !== '') {
-            $stmt = $pdo->prepare('INSERT INTO codes(name, code) VALUES (:name, :code) ON DUPLICATE KEY UPDATE name=VALUES(name)');
-            $stmt->execute([':name' => $codeName, ':code' => $codeValue]);
-            $message = 'Código guardado.';
+            if ($codeId) {
+                $stmt = $pdo->prepare('SELECT code FROM codes WHERE id = :id');
+                $stmt->execute([':id' => $codeId]);
+                $oldCode = $stmt->fetchColumn();
+                $stmt = $pdo->prepare('UPDATE codes SET name = :name, code = :code WHERE id = :id');
+                $stmt->execute([':name' => $codeName, ':code' => $codeValue, ':id' => $codeId]);
+                if ($oldCode && $oldCode !== $codeValue) {
+                    $stmt = $pdo->prepare('UPDATE scheduled_calls SET number = :new WHERE number = :old');
+                    $stmt->execute([':new' => $codeValue, ':old' => $oldCode]);
+                }
+                $message = 'Código actualizado.';
+            } else {
+                $stmt = $pdo->prepare('INSERT INTO codes(name, code) VALUES (:name, :code)');
+                $stmt->execute([':name' => $codeName, ':code' => $codeValue]);
+                $message = 'Código guardado.';
+            }
         } else {
             $message = 'Nombre y código son obligatorios.';
+        }
+    } elseif ($action === 'delete_code') {
+        $codeId = intval($_POST['code_id'] ?? 0);
+        if ($codeId) {
+            $stmt = $pdo->prepare('SELECT code FROM codes WHERE id = :id');
+            $stmt->execute([':id' => $codeId]);
+            $codeValue = $stmt->fetchColumn();
+            if ($codeValue !== false) {
+                $pdo->prepare('DELETE FROM codes WHERE id = :id')->execute([':id' => $codeId]);
+                $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code')->execute([':code' => $codeValue]);
+                $message = 'Código eliminado.';
+            }
         }
     }
 }
 
-$codes = $pdo->query('SELECT name, code FROM codes ORDER BY name')->fetchAll();
+$codes = $pdo->query('SELECT id, name, code FROM codes ORDER BY name')->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -162,27 +196,41 @@ $codes = $pdo->query('SELECT name, code FROM codes ORDER BY name')->fetchAll();
     <h2>Códigos</h2>
     <form method="post" class="mb-3">
         <input type="hidden" name="action" value="save_code">
+        <?php if ($editCode): ?>
+            <input type="hidden" name="code_id" value="<?= $editCode['id'] ?>">
+        <?php endif; ?>
         <div class="row mb-3">
             <div class="col">
                 <label for="code_name" class="form-label">Nombre</label>
-                <input type="text" class="form-control" name="code_name" id="code_name" required>
+                <input type="text" class="form-control" name="code_name" id="code_name" value="<?= htmlspecialchars($editCode['name'] ?? '') ?>" required>
             </div>
             <div class="col">
                 <label for="code_value" class="form-label">Código</label>
-                <input type="text" class="form-control" name="code_value" id="code_value" required>
+                <input type="text" class="form-control" name="code_value" id="code_value" value="<?= htmlspecialchars($editCode['code'] ?? '') ?>" required>
             </div>
         </div>
-        <button type="submit" class="btn btn-secondary">Guardar código</button>
+        <button type="submit" class="btn btn-secondary"><?= $editCode ? 'Actualizar código' : 'Guardar código' ?></button>
+        <?php if ($editCode): ?>
+            <a href="config.php" class="btn btn-link">Cancelar</a>
+        <?php endif; ?>
     </form>
 
     <?php if ($codes): ?>
     <table class="table table-striped">
-        <thead><tr><th>Nombre</th><th>Código</th></tr></thead>
+        <thead><tr><th>Nombre</th><th>Código</th><th>Acciones</th></tr></thead>
         <tbody>
         <?php foreach ($codes as $c): ?>
             <tr>
                 <td><?= htmlspecialchars($c['name']) ?></td>
                 <td><?= htmlspecialchars($c['code']) ?></td>
+                <td>
+                    <a class="btn btn-sm btn-primary" href="config.php?edit_id=<?= $c['id'] ?>">Editar</a>
+                    <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar código?');">
+                        <input type="hidden" name="action" value="delete_code">
+                        <input type="hidden" name="code_id" value="<?= $c['id'] ?>">
+                        <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                    </form>
+                </td>
             </tr>
         <?php endforeach; ?>
         </tbody>

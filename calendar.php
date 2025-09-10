@@ -52,7 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'save_dates') {
         $dates = $_POST['dates'] ?? '';
-        if ($extension !== '' && $number !== '') {
+        $time = trim($_POST['time'] ?? '00:00');
+        if ($extension !== '' && $number !== '' && $time !== '') {
             $pdo->prepare('DELETE FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL')
                 ->execute([':extension' => $extension, ':number' => $number]);
 
@@ -63,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $insert->execute([
                         ':extension' => $extension,
                         ':number' => $number,
-                        ':scheduled_at' => $d . ' 00:00:00'
+                        ':scheduled_at' => $d . ' ' . $time . ':00'
                     ]);
                 }
                 $message = 'Fechas actualizadas.';
@@ -77,10 +78,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $selectedDates = [];
+$selectedTime = '00:00';
 if ($extension !== '' && $number !== '') {
-    $stmt = $pdo->prepare('SELECT DATE(scheduled_at) AS d FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL');
+    $stmt = $pdo->prepare('SELECT DATE(scheduled_at) AS d, TIME(scheduled_at) AS t FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL');
     $stmt->execute([':extension' => $extension, ':number' => $number]);
-    $selectedDates = array_column($stmt->fetchAll(), 'd');
+    $rows = $stmt->fetchAll();
+    $selectedDates = array_column($rows, 'd');
+    if ($rows) {
+        $selectedTime = substr($rows[0]['t'], 0, 5);
+    }
+}
+
+$allScheduled = $pdo->query('SELECT DATE(sc.scheduled_at) AS d, sc.number, c.name FROM scheduled_calls sc JOIN codes c ON sc.number = c.code WHERE sc.executed_at IS NULL')->fetchAll();
+$codeSchedules = [];
+$codeColors = [];
+$palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
+$ci = 0;
+foreach ($allScheduled as $row) {
+    $code = $row['number'];
+    if (!isset($codeSchedules[$code])) {
+        $codeSchedules[$code] = ['name' => $row['name'], 'dates' => []];
+        $codeColors[$code] = $palette[$ci % count($palette)];
+        $ci++;
+    }
+    $codeSchedules[$code]['dates'][] = $row['d'];
 }
 ?>
 <!DOCTYPE html>
@@ -90,6 +111,16 @@ if ($extension !== '' && $number !== '') {
     <title>Calendario</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <style>
+    .schedule-dot{
+        position:absolute;
+        width:6px;
+        height:6px;
+        border-radius:50%;
+        bottom:2px;
+        right:2px;
+    }
+    </style>
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
@@ -127,6 +158,10 @@ if ($extension !== '' && $number !== '') {
                     <?php endforeach; ?>
                 </select>
             </div>
+            <div class="col">
+                <label for="time" class="form-label">Hora</label>
+                <input type="time" class="form-control" name="time" id="time" value="<?= htmlspecialchars($selectedTime) ?>" required>
+            </div>
         </div>
         <div class="mb-3">
             <label for="datePicker" class="form-label">Fechas</label>
@@ -135,6 +170,12 @@ if ($extension !== '' && $number !== '') {
         </div>
         <button type="submit" class="btn btn-success">Guardar fechas</button>
     </form>
+    <div class="mt-3">
+        <?php foreach ($codeColors as $code => $color): ?>
+            <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
+            <?= htmlspecialchars($codeSchedules[$code]['name']) ?>&nbsp;
+        <?php endforeach; ?>
+    </div>
 <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -142,6 +183,8 @@ if ($extension !== '' && $number !== '') {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 <script>
 var selectedDates = <?php echo json_encode($selectedDates); ?>;
+var codeSchedules = <?php echo json_encode($codeSchedules); ?>;
+var codeColors = <?php echo json_encode($codeColors); ?>;
 flatpickr("#datePicker", {
     locale: "es",
     mode: "multiple",
@@ -149,6 +192,17 @@ flatpickr("#datePicker", {
     defaultDate: selectedDates,
     onChange: function(selDates, dateStr, instance) {
         document.getElementById('dates').value = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');}).join(',');
+    },
+    onDayCreate: function(dObj, dStr, fp, dayElem) {
+        var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
+        Object.keys(codeSchedules).forEach(function(code) {
+            if (codeSchedules[code].dates.indexOf(date) !== -1) {
+                var span = document.createElement('span');
+                span.className = 'schedule-dot';
+                span.style.backgroundColor = codeColors[code];
+                dayElem.appendChild(span);
+            }
+        });
     }
 });
 document.getElementById('dates').value = selectedDates.join(',');
