@@ -1,5 +1,6 @@
 <?php
-date_default_timezone_set('Europe/Madrid');
+$timezone = getenv('APP_TZ') ?: 'Europe/Madrid';
+date_default_timezone_set($timezone);
 // Configuration page with multi-date calendar using Bootstrap and Flatpickr
 
 $host = getenv('DB_HOST') ?: 'localhost';
@@ -16,7 +17,9 @@ $options = [
 ];
 
 $pdo = new PDO($dsn, $user, $pass, $options);
-$pdo->exec("SET time_zone = '" . date('P') . "'");
+$tz = new DateTimeZone($timezone);
+$offset = (new DateTime('now', $tz))->format('P');
+$pdo->exec("SET time_zone = '$offset'");
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,

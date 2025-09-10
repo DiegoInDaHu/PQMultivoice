@@ -1,5 +1,7 @@
 <?php
-date_default_timezone_set('Europe/Madrid');
+// Allow timezone configuration via APP_TZ environment variable (defaults to Europe/Madrid)
+$timezone = getenv('APP_TZ') ?: 'Europe/Madrid';
+date_default_timezone_set($timezone);
 // Execute scheduled calls due at the current time
 
 $host = getenv('DB_HOST') ?: 'localhost';
@@ -16,7 +18,9 @@ $options = [
 ];
 
 $pdo = new PDO($dsn, $user, $pass, $options);
-$pdo->exec("SET time_zone = '" . date('P') . "'");
+$tz = new DateTimeZone($timezone);
+$offset = (new DateTime('now', $tz))->format('P');
+$pdo->exec("SET time_zone = '$offset'");
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
