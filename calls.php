@@ -29,10 +29,20 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS calls (
 $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     id INT PRIMARY KEY,
     api_key VARCHAR(255) NOT NULL,
-    default_extension VARCHAR(255) DEFAULT NULL
+    default_extension VARCHAR(255) DEFAULT NULL,
+    execution_time VARCHAR(5) DEFAULT "21:00",
+    notification_email VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {
+}
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
+} catch (PDOException $e) {
+}
+try {
+    $pdo->exec('ALTER TABLE settings ADD COLUMN notification_email VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {
 }
 
@@ -42,9 +52,10 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     code VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$settings = $pdo->query('SELECT api_key, default_extension FROM settings WHERE id = 1')->fetch() ?: [];
+$settings = $pdo->query('SELECT api_key, default_extension, notification_email FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
+$notificationEmail = $settings['notification_email'] ?? '';
 
 $behaviors = $pdo->query('SELECT name, code FROM behaviors ORDER BY name')->fetchAll();
 
@@ -73,6 +84,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([':extension' => $extension, ':number' => $number]);
 
             $message = $error ? "Error: $error" : "API response: $response";
+            if ($notificationEmail !== '') {
+                $subject = 'Llamada inmediata ejecutada';
+                $body = "Extensión: $extension\nComportamiento: $number\n";
+                $body .= $error ? "Error: $error" : "Respuesta: $response";
+                @mail($notificationEmail, $subject, $body);
+            }
         } else {
             $message = 'Both extension and comportamiento are required.';
         }

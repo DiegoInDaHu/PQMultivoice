@@ -33,7 +33,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
 $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     id INT PRIMARY KEY,
     api_key VARCHAR(255) NOT NULL,
-    default_extension VARCHAR(255) DEFAULT NULL
+    default_extension VARCHAR(255) DEFAULT NULL,
+    execution_time VARCHAR(5) DEFAULT "21:00",
+    notification_email VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
@@ -52,10 +54,16 @@ try {
 } catch (PDOException $e) {
     // Column may already exist
 }
-$settings = $pdo->query('SELECT api_key, default_extension, execution_time FROM settings WHERE id = 1')->fetch() ?: [];
+try {
+    $pdo->exec('ALTER TABLE settings ADD COLUMN notification_email VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {
+    // Column may already exist
+}
+$settings = $pdo->query('SELECT api_key, default_extension, execution_time, notification_email FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
 $executionTime = $settings['execution_time'] ?? '21:00';
+$notificationEmail = $settings['notification_email'] ?? '';
 
 $message = '';
 
@@ -74,11 +82,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newKey = trim($_POST['api_key'] ?? '');
         $newDefault = trim($_POST['default_extension'] ?? '');
         $newTime = trim($_POST['execution_time'] ?? '21:00');
-        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time) VALUES (1, :api_key, :default_extension, :execution_time)');
-        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime]);
+        $newEmail = trim($_POST['notification_email'] ?? '');
+        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time, notification_email) VALUES (1, :api_key, :default_extension, :execution_time, :notification_email)');
+        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime, ':notification_email' => $newEmail]);
         $apiKey = $newKey;
         $defaultExtension = $newDefault;
         $executionTime = $newTime;
+        $notificationEmail = $newEmail;
         $message = 'Configuración actualizada.';
     } elseif ($action === 'save_behavior') {
         $behaviorId = intval($_POST['behavior_id'] ?? 0);
@@ -154,6 +164,10 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
         <div class="mb-3">
             <label for="default_extension" class="form-label">Extensión por defecto</label>
             <input type="text" class="form-control" name="default_extension" id="default_extension" value="<?= htmlspecialchars($defaultExtension) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="notification_email" class="form-label">Correo de notificación</label>
+            <input type="email" class="form-control" name="notification_email" id="notification_email" value="<?= htmlspecialchars($notificationEmail) ?>">
         </div>
         <div class="mb-3">
             <label for="execution_time" class="form-label">Hora de ejecución</label>

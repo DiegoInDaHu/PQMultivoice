@@ -34,7 +34,9 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
 $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     id INT PRIMARY KEY,
     api_key VARCHAR(255) NOT NULL,
-    default_extension VARCHAR(255) DEFAULT NULL
+    default_extension VARCHAR(255) DEFAULT NULL,
+    execution_time VARCHAR(5) DEFAULT "21:00",
+    notification_email VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
@@ -44,8 +46,13 @@ try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
 } catch (PDOException $e) {
 }
-
-$apiKey = $pdo->query('SELECT api_key FROM settings WHERE id = 1')->fetchColumn();
+try {
+    $pdo->exec('ALTER TABLE settings ADD COLUMN notification_email VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {
+}
+$settings = $pdo->query('SELECT api_key, notification_email FROM settings WHERE id = 1')->fetch();
+$apiKey = $settings['api_key'] ?? '';
+$notificationEmail = $settings['notification_email'] ?? '';
 
 if (!$apiKey) {
     echo "API key not configured\n";
@@ -76,6 +83,13 @@ foreach ($calls as $call) {
         echo "Error for {$call['id']}: $error\n";
     } else {
         echo "Executed {$call['id']}: $response\n";
+    }
+
+    if ($notificationEmail) {
+        $subject = "Llamada programada ejecutada";
+        $body = "Extensión: {$call['extension']}\nComportamiento: {$call['number']}\n";
+        $body .= $error ? "Error: $error" : "Respuesta: $response";
+        @mail($notificationEmail, $subject, $body);
     }
 }
 
