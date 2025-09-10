@@ -9,6 +9,10 @@ $user = getenv('DB_USER') ?: 'root';
 $pass = getenv('DB_PASS') ?: 'terminal';
 $charset = 'utf8mb4';
 
+require __DIR__ . '/vendor/autoload.php';
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
 $options = [
     PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -35,14 +39,18 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     api_key VARCHAR(255) NOT NULL,
     default_extension VARCHAR(255) DEFAULT NULL,
     execution_time VARCHAR(5) DEFAULT "21:00",
-    notification_email VARCHAR(255) DEFAULT NULL
+    notification_email VARCHAR(255) DEFAULT NULL,
+    smtp_host VARCHAR(255) DEFAULT NULL,
+    smtp_port INT DEFAULT 587,
+    smtp_user VARCHAR(255) DEFAULT NULL,
+    smtp_pass VARCHAR(255) DEFAULT NULL,
+    smtp_secure VARCHAR(10) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {
     // Column may already exist
 }
-
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -59,11 +67,22 @@ try {
 } catch (PDOException $e) {
     // Column may already exist
 }
-$settings = $pdo->query('SELECT api_key, default_extension, execution_time, notification_email FROM settings WHERE id = 1')->fetch() ?: [];
+try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_host VARCHAR(255) DEFAULT NULL'); } catch (PDOException $e) {}
+try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_port INT DEFAULT 587'); } catch (PDOException $e) {}
+try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_user VARCHAR(255) DEFAULT NULL'); } catch (PDOException $e) {}
+try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_pass VARCHAR(255) DEFAULT NULL'); } catch (PDOException $e) {}
+try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_secure VARCHAR(10) DEFAULT NULL'); } catch (PDOException $e) {}
+
+$settings = $pdo->query('SELECT api_key, default_extension, execution_time, notification_email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
 $executionTime = $settings['execution_time'] ?? '21:00';
 $notificationEmail = $settings['notification_email'] ?? '';
+$smtpHost = $settings['smtp_host'] ?? '';
+$smtpPort = $settings['smtp_port'] ?? 587;
+$smtpUser = $settings['smtp_user'] ?? '';
+$smtpPass = $settings['smtp_pass'] ?? '';
+$smtpSecure = $settings['smtp_secure'] ?? '';
 
 $message = '';
 
@@ -83,23 +102,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newDefault = trim($_POST['default_extension'] ?? '');
         $newTime = trim($_POST['execution_time'] ?? '21:00');
         $newEmail = trim($_POST['notification_email'] ?? '');
-        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time, notification_email) VALUES (1, :api_key, :default_extension, :execution_time, :notification_email)');
-        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime, ':notification_email' => $newEmail]);
+        $newSmtpHost = trim($_POST['smtp_host'] ?? '');
+        $newSmtpPort = intval($_POST['smtp_port'] ?? 587);
+        $newSmtpUser = trim($_POST['smtp_user'] ?? '');
+        $newSmtpPass = trim($_POST['smtp_pass'] ?? '');
+        $newSmtpSecure = trim($_POST['smtp_secure'] ?? '');
+        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time, notification_email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure) VALUES (1, :api_key, :default_extension, :execution_time, :notification_email, :smtp_host, :smtp_port, :smtp_user, :smtp_pass, :smtp_secure)');
+        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime, ':notification_email' => $newEmail, ':smtp_host' => $newSmtpHost, ':smtp_port' => $newSmtpPort, ':smtp_user' => $newSmtpUser, ':smtp_pass' => $newSmtpPass, ':smtp_secure' => $newSmtpSecure]);
         $apiKey = $newKey;
         $defaultExtension = $newDefault;
         $executionTime = $newTime;
         $notificationEmail = $newEmail;
+        $smtpHost = $newSmtpHost;
+        $smtpPort = $newSmtpPort;
+        $smtpUser = $newSmtpUser;
+        $smtpPass = $newSmtpPass;
+        $smtpSecure = $newSmtpSecure;
         $message = 'Configuración actualizada.';
     } elseif ($action === 'send_test_email') {
         $email = trim($_POST['notification_email'] ?? '');
-        if ($email !== '') {
-            if (@mail($email, 'Prueba de notificación', 'Este es un mensaje de prueba.')) {
+        $smtpHost = trim($_POST['smtp_host'] ?? $smtpHost);
+        $smtpPort = intval($_POST['smtp_port'] ?? $smtpPort);
+        $smtpUser = trim($_POST['smtp_user'] ?? $smtpUser);
+        $smtpPass = trim($_POST['smtp_pass'] ?? $smtpPass);
+        $smtpSecure = trim($_POST['smtp_secure'] ?? $smtpSecure);
+        if ($email !== '' && $smtpHost !== '' && $smtpUser !== '') {
+            $mail = new PHPMailer(true);
+            try {
+                $mail->isSMTP();
+                $mail->Host = $smtpHost;
+                $mail->SMTPAuth = true;
+                $mail->Username = $smtpUser;
+                $mail->Password = $smtpPass;
+                if ($smtpSecure !== '') { $mail->SMTPSecure = $smtpSecure; }
+                $mail->Port = $smtpPort ?: 587;
+                $mail->setFrom($smtpUser);
+                $mail->addAddress($email);
+                $mail->Subject = 'Prueba de notificación';
+                $mail->Body = 'Este es un mensaje de prueba.';
+                $mail->send();
                 $message = 'Correo de prueba enviado.';
-            } else {
-                $message = 'Error al enviar el correo de prueba.';
+            } catch (Exception $e) {
+                $message = 'Error al enviar el correo de prueba: ' . $mail->ErrorInfo;
             }
         } else {
-            $message = 'Correo no válido.';
+            $message = 'Configuración SMTP incompleta o correo no válido.';
         }
         $notificationEmail = $email;
     } elseif ($action === 'save_behavior') {
@@ -187,6 +234,30 @@ $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->
         <div class="mb-3">
             <label for="execution_time" class="form-label">Hora de ejecución</label>
             <input type="time" class="form-control" name="execution_time" id="execution_time" value="<?= htmlspecialchars($executionTime) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="smtp_host" class="form-label">SMTP Host</label>
+            <input type="text" class="form-control" name="smtp_host" id="smtp_host" value="<?= htmlspecialchars($smtpHost) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="smtp_port" class="form-label">SMTP Puerto</label>
+            <input type="number" class="form-control" name="smtp_port" id="smtp_port" value="<?= htmlspecialchars($smtpPort) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="smtp_user" class="form-label">SMTP Usuario</label>
+            <input type="text" class="form-control" name="smtp_user" id="smtp_user" value="<?= htmlspecialchars($smtpUser) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="smtp_pass" class="form-label">SMTP Contraseña</label>
+            <input type="password" class="form-control" name="smtp_pass" id="smtp_pass" value="<?= htmlspecialchars($smtpPass) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="smtp_secure" class="form-label">SMTP Seguridad</label>
+            <select class="form-select" name="smtp_secure" id="smtp_secure">
+                <option value="" <?= $smtpSecure=='' ? 'selected' : '' ?>>Ninguna</option>
+                <option value="tls" <?= $smtpSecure=='tls' ? 'selected' : '' ?>>TLS</option>
+                <option value="ssl" <?= $smtpSecure=='ssl' ? 'selected' : '' ?>>SSL</option>
+            </select>
         </div>
         <button type="submit" class="btn btn-secondary">Guardar configuración</button>
     </form>
