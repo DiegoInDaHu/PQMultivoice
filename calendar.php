@@ -32,13 +32,17 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     id INT PRIMARY KEY,
     api_key VARCHAR(255) NOT NULL,
     default_extension VARCHAR(255) DEFAULT NULL,
-    execution_time VARCHAR(5) DEFAULT "21:00"
+    execution_time VARCHAR(5) DEFAULT "21:00",
+    notification_email VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {}
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
+} catch (PDOException $e) {}
+try {
+    $pdo->exec('ALTER TABLE settings ADD COLUMN notification_email VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {}
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
