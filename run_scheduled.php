@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Europe/Madrid');
 // Execute scheduled calls due at the current time
 
 $host = getenv('DB_HOST') ?: 'localhost';
@@ -15,6 +16,7 @@ $options = [
 ];
 
 $pdo = new PDO($dsn, $user, $pass, $options);
+$pdo->exec("SET time_zone = 'Europe/Madrid'");
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,

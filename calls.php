@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Europe/Madrid');
 $host = getenv('DB_HOST') ?: 'localhost';
 $db   = getenv('DB_NAME') ?: 'multivoice';
 $user = getenv('DB_USER') ?: 'root';
@@ -13,6 +14,7 @@ $options = [
 ];
 
 $pdo = new PDO($dsn, $user, $pass, $options);
+$pdo->exec("SET time_zone = 'Europe/Madrid'");
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
