@@ -81,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $selectedDates = [];
 $selectedTime = '21:00';
+$executionHistory = [];
 if ($extension !== '' && $number !== '') {
     $stmt = $pdo->prepare('SELECT DATE(scheduled_at) AS d, TIME(scheduled_at) AS t FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NULL');
     $stmt->execute([':extension' => $extension, ':number' => $number]);
@@ -89,6 +90,10 @@ if ($extension !== '' && $number !== '') {
     if ($rows) {
         $selectedTime = substr($rows[0]['t'], 0, 5);
     }
+
+    $histStmt = $pdo->prepare('SELECT executed_at FROM scheduled_calls WHERE extension = :extension AND number = :number AND executed_at IS NOT NULL ORDER BY executed_at DESC');
+    $histStmt->execute([':extension' => $extension, ':number' => $number]);
+    $executionHistory = $histStmt->fetchAll();
 }
 
 if (isset($_GET['ajax'])) {
@@ -185,6 +190,14 @@ foreach ($allScheduled as $row) {
             <?= htmlspecialchars($codeSchedules[$code]['name']) ?>&nbsp;
         <?php endforeach; ?>
     </div>
+    <?php if ($executionHistory): ?>
+    <h3 class="mt-4">Historial de ejecuciones</h3>
+    <ul class="list-group">
+        <?php foreach ($executionHistory as $row): ?>
+            <li class="list-group-item"><?= htmlspecialchars($row['executed_at']) ?></li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
 <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
