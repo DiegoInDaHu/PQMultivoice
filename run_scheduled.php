@@ -5,7 +5,7 @@ date_default_timezone_set($timezone);
 // Execute scheduled calls due at the current time
 
 $host = getenv('DB_HOST') ?: 'localhost';
-$db   = getenv('DB_NAME') ?: 'PQmulticoice';
+$db   = getenv('DB_NAME') ?: 'pqmultivoice';
 $user = getenv('DB_USER') ?: 'root';
 $pass = getenv('DB_PASS') ?: 'terminal';
 $charset = 'utf8mb4';

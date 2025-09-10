@@ -1,4 +1,4 @@
-# PQmulticoiceAutoComportamiento
+# pqmultivoiceAutoComportamiento
 
 Interfaz web en PHP para realizar llamadas mediante la API de Siptize.
 
