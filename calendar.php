@@ -62,51 +62,68 @@ $settings = $pdo->query('SELECT default_extension, execution_time FROM settings 
 $defaultExtension = $settings['default_extension'] ?? '';
 $executionTime = $settings['execution_time'] ?? '21:00';
 
+// Helper to rebuild scheduled calls for a behavior
+function reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime) {
+    if (!$defaultExtension) {
+        return;
+    }
+    $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
+    $stmt->execute([':id' => $behaviorId]);
+    $code = $stmt->fetchColumn();
+    if ($code === false) {
+        return;
+    }
+    $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code AND executed_at IS NULL')->execute([':code' => $code]);
+    $periods = $pdo->prepare('SELECT start_date FROM behavior_periods WHERE behavior_id = :id');
+    $periods->execute([':id' => $behaviorId]);
+    foreach ($periods as $p) {
+        $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
+            ->execute([
+                ':ext' => $defaultExtension,
+                ':num' => $code,
+                ':sched' => $p['start_date'] . ' ' . $executionTime . ':00'
+            ]);
+    }
+}
+
 $behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->fetchAll();
 
 $message = '';
 $behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['id'] ?? 0));
-$period = null;
-if ($behaviorId) {
-    $stmt = $pdo->prepare('SELECT start_date, end_date FROM behavior_periods WHERE behavior_id = :id');
-    $stmt->execute([':id' => $behaviorId]);
-    $period = $stmt->fetch();
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    if ($action === 'save_period') {
+    if ($action === 'add_period') {
         $start = $_POST['start_date'] ?? '';
         $end = $_POST['end_date'] ?? '';
         if ($behaviorId && $start !== '' && $end !== '' && $defaultExtension !== '') {
-            $check = $pdo->prepare('SELECT COUNT(*) FROM behavior_periods WHERE behavior_id <> :id AND NOT (end_date < :start OR start_date > :end)');
-            $check->execute([':id' => $behaviorId, ':start' => $start, ':end' => $end]);
+            $check = $pdo->prepare('SELECT COUNT(*) FROM behavior_periods WHERE NOT (end_date < :start OR start_date > :end)');
+            $check->execute([':start' => $start, ':end' => $end]);
             if ($check->fetchColumn() > 0) {
                 $message = 'Periodo solapado con otro comportamiento.';
             } else {
-                $pdo->prepare('DELETE FROM behavior_periods WHERE behavior_id = :id')->execute([':id' => $behaviorId]);
                 $pdo->prepare('INSERT INTO behavior_periods(behavior_id, start_date, end_date) VALUES (:id, :start, :end)')
                     ->execute([':id' => $behaviorId, ':start' => $start, ':end' => $end]);
-                $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
-                $stmt->execute([':id' => $behaviorId]);
-                $code = $stmt->fetchColumn();
-                if ($code !== false) {
-                    $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code AND executed_at IS NULL')->execute([':code' => $code]);
-                    $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
-                        ->execute([
-                            ':ext' => $defaultExtension,
-                            ':num' => $code,
-                            ':sched' => $start . ' ' . $executionTime . ':00'
-                        ]);
-                }
-                $message = 'Periodo actualizado.';
-                $period = ['start_date' => $start, 'end_date' => $end];
+                reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
+                $message = 'Periodo agregado.';
             }
         } else {
             $message = 'Todos los campos son obligatorios.';
         }
+    } elseif ($action === 'delete_period') {
+        $periodId = intval($_POST['period_id'] ?? 0);
+        if ($behaviorId && $periodId) {
+            $pdo->prepare('DELETE FROM behavior_periods WHERE id = :pid AND behavior_id = :bid')
+                ->execute([':pid' => $periodId, ':bid' => $behaviorId]);
+            reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
+            $message = 'Periodo eliminado.';
+        }
     }
 }
+
+$stmt = $pdo->prepare('SELECT id, start_date, end_date FROM behavior_periods WHERE behavior_id = :id ORDER BY start_date');
+$stmt->execute([':id' => $behaviorId]);
+$behaviorPeriods = $stmt->fetchAll();
 
 $allPeriods = $pdo->query('SELECT bp.start_date, bp.end_date, b.code, b.name FROM behavior_periods bp JOIN behaviors b ON bp.behavior_id = b.id')->fetchAll();
 $behaviorSchedules = [];
@@ -126,9 +143,6 @@ foreach ($allPeriods as $row) {
         $behaviorSchedules[$code]['dates'][] = $d->format('Y-m-d');
     }
 }
-
-$selectedStart = $period['start_date'] ?? '';
-$selectedEnd = $period['end_date'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -158,8 +172,8 @@ $selectedEnd = $period['end_date'] ?? '';
     <p>No hay comportamientos guardados. Agregue uno en Configuración.</p>
 <?php else: ?>
     <h2>Configurar calendario</h2>
-    <form method="post">
-        <input type="hidden" name="action" value="save_period">
+    <form method="post" class="mb-3">
+        <input type="hidden" name="action" value="add_period">
         <div class="row mb-3">
             <div class="col">
                 <label for="behavior" class="form-label">Comportamiento</label>
@@ -173,11 +187,28 @@ $selectedEnd = $period['end_date'] ?? '';
         <div class="mb-3">
             <label for="rangePicker" class="form-label">Periodo</label>
             <input type="text" id="rangePicker" class="form-control">
-            <input type="hidden" name="start_date" id="start_date" value="<?= htmlspecialchars($selectedStart) ?>">
-            <input type="hidden" name="end_date" id="end_date" value="<?= htmlspecialchars($selectedEnd) ?>">
+            <input type="hidden" name="start_date" id="start_date">
+            <input type="hidden" name="end_date" id="end_date">
         </div>
-        <button type="submit" class="btn btn-success">Guardar periodo</button>
+        <button type="submit" class="btn btn-success">Añadir periodo</button>
     </form>
+
+    <?php if ($behaviorPeriods): ?>
+    <ul class="list-group mb-3">
+        <?php foreach ($behaviorPeriods as $p): ?>
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <?= htmlspecialchars($p['start_date']) ?> a <?= htmlspecialchars($p['end_date']) ?>
+            <form method="post" class="ms-2">
+                <input type="hidden" name="action" value="delete_period">
+                <input type="hidden" name="behavior" value="<?= $behaviorId ?>">
+                <input type="hidden" name="period_id" value="<?= $p['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+            </form>
+        </li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+
     <div class="mt-3">
         <?php foreach ($behaviorColors as $code => $color): ?>
             <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
@@ -190,15 +221,12 @@ $selectedEnd = $period['end_date'] ?? '';
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 <script>
-var selectedStart = "<?= $selectedStart ?>";
-var selectedEnd = "<?= $selectedEnd ?>";
 var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
 var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
 flatpickr("#rangePicker", {
     locale: "es",
     mode: "range",
     dateFormat: "Y-m-d",
-    defaultDate: selectedStart && selectedEnd ? [selectedStart, selectedEnd] : [],
     onChange: function(selDates, dateStr, instance) {
         var dates = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');});
         document.getElementById('start_date').value = dates[0] || '';
