@@ -147,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container-fluid">
         <a class="navbar-brand" href="#">PQ Multivoice</a>
         <div class="navbar-nav">
-            <a class="nav-link" href="index.php">Historial</a>
+            <a class="nav-link" href="index.php">Resumen</a>
             <a class="nav-link" href="calendar.php">Calendario</a>
             <a class="nav-link active" href="calls.php">Llamadas</a>
             <a class="nav-link" href="config.php">Configuración</a>

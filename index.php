@@ -50,7 +50,7 @@ foreach ($allPeriods as $row) {
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Historial</title>
+    <title>Resumen</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
     <style>
@@ -65,7 +65,7 @@ foreach ($allPeriods as $row) {
     <div class="container-fluid">
         <a class="navbar-brand" href="#">PQ Multivoice</a>
         <div class="navbar-nav">
-            <a class="nav-link active" href="index.php">Historial</a>
+            <a class="nav-link active" href="index.php">Resumen</a>
             <a class="nav-link" href="calendar.php">Calendario</a>
             <a class="nav-link" href="calls.php">Llamadas</a>
             <a class="nav-link" href="config.php">Configuración</a>
