@@ -36,13 +36,21 @@ try {
 } catch (PDOException $e) {
 }
 
+$pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(255) NOT NULL UNIQUE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+
 $settings = $pdo->query('SELECT api_key, default_extension FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
 
+$behaviors = $pdo->query('SELECT name, code FROM behaviors ORDER BY name')->fetchAll();
+
 $message = '';
 $extension = trim($_POST['extension'] ?? $_GET['extension'] ?? $defaultExtension);
-$number = trim($_POST['number'] ?? $_GET['number'] ?? '');
+$number = trim($_POST['number'] ?? $_GET['number'] ?? ($behaviors[0]['code'] ?? ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -66,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $message = $error ? "Error: $error" : "API response: $response";
         } else {
-            $message = 'Both extension and code are required.';
+            $message = 'Both extension and comportamiento are required.';
         }
     }
 }
@@ -104,8 +112,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" class="form-control" name="extension" id="extension" value="<?= htmlspecialchars($extension) ?>" required>
             </div>
             <div class="col">
-                <label for="number" class="form-label">Código</label>
-                <input type="text" class="form-control" name="number" id="number" value="<?= htmlspecialchars($number) ?>" required>
+                <label for="number" class="form-label">Comportamiento</label>
+                <select class="form-select" name="number" id="number" required>
+                    <?php foreach ($behaviors as $b): ?>
+                        <option value="<?= htmlspecialchars($b['code']) ?>" <?= $b['code'] === $number ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
         </div>
         <button type="submit" class="btn btn-primary">Llamar</button>
@@ -113,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <h2>Llamadas realizadas</h2>
     <table class="table table-striped">
-        <thead><tr><th>Extensión</th><th>Código</th><th>Fecha</th></tr></thead>
+        <thead><tr><th>Extensión</th><th>Comportamiento</th><th>Fecha</th></tr></thead>
         <tbody>
         <?php foreach ($pdo->query('SELECT extension, number, created_at FROM calls ORDER BY id DESC') as $row): ?>
             <tr>

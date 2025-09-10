@@ -41,24 +41,30 @@ try {
     // Column may already exist
 }
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS codes (
+$pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     code VARCHAR(255) NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$settings = $pdo->query('SELECT api_key, default_extension FROM settings WHERE id = 1')->fetch() ?: [];
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
+} catch (PDOException $e) {
+    // Column may already exist
+}
+$settings = $pdo->query('SELECT api_key, default_extension, execution_time FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
+$executionTime = $settings['execution_time'] ?? '21:00';
 
 $message = '';
 
 $editId = intval($_GET['edit_id'] ?? 0);
-$editCode = null;
+$editBehavior = null;
 if ($editId) {
-    $stmt = $pdo->prepare('SELECT id, name, code FROM codes WHERE id = :id');
+    $stmt = $pdo->prepare('SELECT id, name, code FROM behaviors WHERE id = :id');
     $stmt->execute([':id' => $editId]);
-    $editCode = $stmt->fetch();
+    $editBehavior = $stmt->fetch();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -67,51 +73,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_settings') {
         $newKey = trim($_POST['api_key'] ?? '');
         $newDefault = trim($_POST['default_extension'] ?? '');
-        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension) VALUES (1, :api_key, :default_extension)');
-        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault]);
+        $newTime = trim($_POST['execution_time'] ?? '21:00');
+        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time) VALUES (1, :api_key, :default_extension, :execution_time)');
+        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime]);
         $apiKey = $newKey;
         $defaultExtension = $newDefault;
+        $executionTime = $newTime;
         $message = 'Configuración actualizada.';
-    } elseif ($action === 'save_code') {
-        $codeId = intval($_POST['code_id'] ?? 0);
-        $codeName = trim($_POST['code_name'] ?? '');
-        $codeValue = trim($_POST['code_value'] ?? '');
-        if ($codeName !== '' && $codeValue !== '') {
-            if ($codeId) {
-                $stmt = $pdo->prepare('SELECT code FROM codes WHERE id = :id');
-                $stmt->execute([':id' => $codeId]);
+    } elseif ($action === 'save_behavior') {
+        $behaviorId = intval($_POST['behavior_id'] ?? 0);
+        $behaviorName = trim($_POST['behavior_name'] ?? '');
+        $behaviorCode = trim($_POST['behavior_code'] ?? '');
+        if ($behaviorName !== '' && $behaviorCode !== '') {
+            if ($behaviorId) {
+                $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
+                $stmt->execute([':id' => $behaviorId]);
                 $oldCode = $stmt->fetchColumn();
-                $stmt = $pdo->prepare('UPDATE codes SET name = :name, code = :code WHERE id = :id');
-                $stmt->execute([':name' => $codeName, ':code' => $codeValue, ':id' => $codeId]);
-                if ($oldCode && $oldCode !== $codeValue) {
+                $stmt = $pdo->prepare('UPDATE behaviors SET name = :name, code = :code WHERE id = :id');
+                $stmt->execute([':name' => $behaviorName, ':code' => $behaviorCode, ':id' => $behaviorId]);
+                if ($oldCode && $oldCode !== $behaviorCode) {
                     $stmt = $pdo->prepare('UPDATE scheduled_calls SET number = :new WHERE number = :old');
-                    $stmt->execute([':new' => $codeValue, ':old' => $oldCode]);
+                    $stmt->execute([':new' => $behaviorCode, ':old' => $oldCode]);
                 }
-                $message = 'Código actualizado.';
+                $message = 'Comportamiento actualizado.';
             } else {
-                $stmt = $pdo->prepare('INSERT INTO codes(name, code) VALUES (:name, :code)');
-                $stmt->execute([':name' => $codeName, ':code' => $codeValue]);
-                $message = 'Código guardado.';
+                $stmt = $pdo->prepare('INSERT INTO behaviors(name, code) VALUES (:name, :code)');
+                $stmt->execute([':name' => $behaviorName, ':code' => $behaviorCode]);
+                $message = 'Comportamiento guardado.';
             }
         } else {
             $message = 'Nombre y código son obligatorios.';
         }
-    } elseif ($action === 'delete_code') {
-        $codeId = intval($_POST['code_id'] ?? 0);
-        if ($codeId) {
-            $stmt = $pdo->prepare('SELECT code FROM codes WHERE id = :id');
-            $stmt->execute([':id' => $codeId]);
-            $codeValue = $stmt->fetchColumn();
-            if ($codeValue !== false) {
-                $pdo->prepare('DELETE FROM codes WHERE id = :id')->execute([':id' => $codeId]);
-                $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code')->execute([':code' => $codeValue]);
-                $message = 'Código eliminado.';
+    } elseif ($action === 'delete_behavior') {
+        $behaviorId = intval($_POST['behavior_id'] ?? 0);
+        if ($behaviorId) {
+            $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
+            $stmt->execute([':id' => $behaviorId]);
+            $behaviorCode = $stmt->fetchColumn();
+            if ($behaviorCode !== false) {
+                $pdo->prepare('DELETE FROM behaviors WHERE id = :id')->execute([':id' => $behaviorId]);
+                $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code')->execute([':code' => $behaviorCode]);
+                $message = 'Comportamiento eliminado.';
             }
         }
     }
 }
-
-$codes = $pdo->query('SELECT id, name, code FROM codes ORDER BY name')->fetchAll();
+$behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -148,44 +155,48 @@ $codes = $pdo->query('SELECT id, name, code FROM codes ORDER BY name')->fetchAll
             <label for="default_extension" class="form-label">Extensión por defecto</label>
             <input type="text" class="form-control" name="default_extension" id="default_extension" value="<?= htmlspecialchars($defaultExtension) ?>">
         </div>
+        <div class="mb-3">
+            <label for="execution_time" class="form-label">Hora de ejecución</label>
+            <input type="time" class="form-control" name="execution_time" id="execution_time" value="<?= htmlspecialchars($executionTime) ?>">
+        </div>
         <button type="submit" class="btn btn-secondary">Guardar configuración</button>
     </form>
 
-    <h2>Códigos</h2>
+    <h2>Comportamientos</h2>
     <form method="post" class="mb-3">
-        <input type="hidden" name="action" value="save_code">
-        <?php if ($editCode): ?>
-            <input type="hidden" name="code_id" value="<?= $editCode['id'] ?>">
+        <input type="hidden" name="action" value="save_behavior">
+        <?php if ($editBehavior): ?>
+            <input type="hidden" name="behavior_id" value="<?= $editBehavior['id'] ?>">
         <?php endif; ?>
         <div class="row mb-3">
             <div class="col">
-                <label for="code_name" class="form-label">Nombre</label>
-                <input type="text" class="form-control" name="code_name" id="code_name" value="<?= htmlspecialchars($editCode['name'] ?? '') ?>" required>
+                <label for="behavior_name" class="form-label">Nombre</label>
+                <input type="text" class="form-control" name="behavior_name" id="behavior_name" value="<?= htmlspecialchars($editBehavior['name'] ?? '') ?>" required>
             </div>
             <div class="col">
-                <label for="code_value" class="form-label">Código</label>
-                <input type="text" class="form-control" name="code_value" id="code_value" value="<?= htmlspecialchars($editCode['code'] ?? '') ?>" required>
+                <label for="behavior_code" class="form-label">Código</label>
+                <input type="text" class="form-control" name="behavior_code" id="behavior_code" value="<?= htmlspecialchars($editBehavior['code'] ?? '') ?>" required>
             </div>
         </div>
-        <button type="submit" class="btn btn-secondary"><?= $editCode ? 'Actualizar código' : 'Guardar código' ?></button>
-        <?php if ($editCode): ?>
+        <button type="submit" class="btn btn-secondary"><?= $editBehavior ? 'Actualizar comportamiento' : 'Guardar comportamiento' ?></button>
+        <?php if ($editBehavior): ?>
             <a href="config.php" class="btn btn-link">Cancelar</a>
         <?php endif; ?>
     </form>
 
-    <?php if ($codes): ?>
+    <?php if ($behaviors): ?>
     <table class="table table-striped">
         <thead><tr><th>Nombre</th><th>Código</th><th>Acciones</th></tr></thead>
         <tbody>
-        <?php foreach ($codes as $c): ?>
+        <?php foreach ($behaviors as $c): ?>
             <tr>
                 <td><?= htmlspecialchars($c['name']) ?></td>
                 <td><?= htmlspecialchars($c['code']) ?></td>
                 <td>
                     <a class="btn btn-sm btn-primary" href="config.php?edit_id=<?= $c['id'] ?>">Editar</a>
-                    <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar código?');">
-                        <input type="hidden" name="action" value="delete_code">
-                        <input type="hidden" name="code_id" value="<?= $c['id'] ?>">
+                    <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar comportamiento?');">
+                        <input type="hidden" name="action" value="delete_behavior">
+                        <input type="hidden" name="behavior_id" value="<?= $c['id'] ?>">
                         <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
                     </form>
                 </td>
