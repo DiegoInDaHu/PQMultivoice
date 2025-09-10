@@ -22,25 +22,26 @@ $pdo->exec("SET time_zone = '$offset'");
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    code VARCHAR(255) NOT NULL UNIQUE
+    code VARCHAR(255) NOT NULL UNIQUE,
+    color VARCHAR(7) DEFAULT "#0d6efd"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+try {
+    $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
+} catch (PDOException $e) {}
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
     id INT AUTO_INCREMENT PRIMARY KEY,
     behavior_id INT NOT NULL,
     day DATE NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
+$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name, b.color FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
 $codeSchedules = [];
 $codeColors = [];
-$palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
-$ci = 0;
 foreach ($allPeriods as $row) {
     $code = $row['code'];
     if (!isset($codeSchedules[$code])) {
         $codeSchedules[$code] = ['name' => $row['name'], 'dates' => []];
-        $codeColors[$code] = $palette[$ci % count($palette)];
-        $ci++;
+        $codeColors[$code] = $row['color'] ?: '#0d6efd';
     }
     $codeSchedules[$code]['dates'][] = $row['day'];
 }

@@ -48,8 +48,12 @@ try {
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    code VARCHAR(255) NOT NULL UNIQUE
+    code VARCHAR(255) NOT NULL UNIQUE,
+    color VARCHAR(7) DEFAULT "#0d6efd"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
+try {
+    $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
+} catch (PDOException $e) {}
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -85,7 +89,7 @@ function reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime)
     }
 }
 
-$behaviors = $pdo->query('SELECT id, name, code FROM behaviors ORDER BY name')->fetchAll();
+$behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY name')->fetchAll();
 
 $message = '';
 $behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['id'] ?? 0));
@@ -123,17 +127,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $stmt = $pdo->prepare('SELECT id, day FROM behavior_days WHERE behavior_id = :id ORDER BY day');
 $stmt->execute([':id' => $behaviorId]);
 $behaviorDays = $stmt->fetchAll();
-$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
+$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name, b.color FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
 $behaviorSchedules = [];
 $behaviorColors = [];
-$palette = ['#0d6efd', '#198754', '#dc3545', '#ffc107', '#0dcaf0', '#6f42c1', '#fd7e14'];
-$ci = 0;
 foreach ($allPeriods as $row) {
     $code = $row['code'];
     if (!isset($behaviorSchedules[$code])) {
         $behaviorSchedules[$code] = ['name' => $row['name'], 'dates' => []];
-        $behaviorColors[$code] = $palette[$ci % count($palette)];
-        $ci++;
+        $behaviorColors[$code] = $row['color'] ?: '#0d6efd';
     }
     $behaviorSchedules[$code]['dates'][] = $row['day'];
 }
