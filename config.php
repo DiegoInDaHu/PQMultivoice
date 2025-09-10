@@ -16,7 +16,7 @@ $options = [
 ];
 
 $pdo = new PDO($dsn, $user, $pass, $options);
-$pdo->exec("SET time_zone = 'Europe/Madrid'");
+$pdo->exec("SET time_zone = '" . date('P') . "'");
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
