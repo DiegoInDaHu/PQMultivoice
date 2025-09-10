@@ -67,12 +67,12 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
 
     <h2>Llamadas programadas</h2>
     <table class="table table-striped">
-        <thead><tr><th>Extensión</th><th>Código</th><th>Programada</th><th>Ejecutada</th><th>Editar</th></tr></thead>
+        <thead><tr><th>Extensión</th><th>Nombre del código</th><th>Programada</th><th>Ejecutada</th><th>Editar</th></tr></thead>
         <tbody>
-        <?php foreach ($pdo->query('SELECT extension, number, scheduled_at, executed_at FROM scheduled_calls ORDER BY id DESC') as $row): ?>
+        <?php foreach ($pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, sc.executed_at, c.name FROM scheduled_calls sc LEFT JOIN codes c ON sc.number = c.code ORDER BY sc.id DESC') as $row): ?>
             <tr>
                 <td><?= htmlspecialchars($row['extension']) ?></td>
-                <td><?= htmlspecialchars($row['number']) ?></td>
+                <td><?= htmlspecialchars($row['name'] ?? $row['number']) ?></td>
                 <td><?= htmlspecialchars($row['scheduled_at']) ?></td>
                 <td><?= htmlspecialchars($row['executed_at'] ?? '-') ?></td>
                 <td><a class="btn btn-sm btn-primary" href="calendar.php?extension=<?= urlencode($row['extension']) ?>&number=<?= urlencode($row['number']) ?>">Editar</a></td>
