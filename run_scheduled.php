@@ -2,10 +2,6 @@
 require __DIR__ . '/db.php';
 // Execute scheduled calls due at the current time
 
-require __DIR__ . '/vendor/autoload.php';
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
     extension VARCHAR(255) NOT NULL,
@@ -20,12 +16,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     api_key VARCHAR(255) NOT NULL,
     default_extension VARCHAR(255) DEFAULT NULL,
     execution_time VARCHAR(5) DEFAULT "21:00",
-    notification_email VARCHAR(255) DEFAULT NULL,
-    smtp_host VARCHAR(255) DEFAULT NULL,
-    smtp_port INT DEFAULT 587,
-    smtp_user VARCHAR(255) DEFAULT NULL,
-    smtp_pass VARCHAR(255) DEFAULT NULL,
-    smtp_secure VARCHAR(10) DEFAULT NULL
+    telegram_bot_id VARCHAR(255) DEFAULT NULL,
+    telegram_chat_id VARCHAR(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
@@ -36,9 +28,11 @@ try {
 } catch (PDOException $e) {
 }
 try {
-    $pdo->exec('ALTER TABLE settings ADD COLUMN notification_email VARCHAR(255) DEFAULT NULL');
-} catch (PDOException $e) {
-}
+    $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_bot_id VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {}
+try {
+    $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_chat_id VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {}
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
@@ -48,19 +42,10 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
 try {
     $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
 } catch (PDOException $e) {}
-try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_host VARCHAR(255) DEFAULT NULL'); } catch (PDOException $e) {}
-try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_port INT DEFAULT 587'); } catch (PDOException $e) {}
-try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_user VARCHAR(255) DEFAULT NULL'); } catch (PDOException $e) {}
-try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_pass VARCHAR(255) DEFAULT NULL'); } catch (PDOException $e) {}
-try { $pdo->exec('ALTER TABLE settings ADD COLUMN smtp_secure VARCHAR(10) DEFAULT NULL'); } catch (PDOException $e) {}
-$settings = $pdo->query('SELECT api_key, notification_email, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_secure FROM settings WHERE id = 1')->fetch();
+$settings = $pdo->query('SELECT api_key, telegram_bot_id, telegram_chat_id FROM settings WHERE id = 1')->fetch();
 $apiKey = $settings['api_key'] ?? '';
-$notificationEmail = $settings['notification_email'] ?? '';
-$smtpHost = $settings['smtp_host'] ?? '';
-$smtpPort = $settings['smtp_port'] ?? 587;
-$smtpUser = $settings['smtp_user'] ?? '';
-$smtpPass = $settings['smtp_pass'] ?? '';
-$smtpSecure = $settings['smtp_secure'] ?? '';
+$telegramBotId = $settings['telegram_bot_id'] ?? '';
+$telegramChatId = $settings['telegram_chat_id'] ?? '';
 
 if (!$apiKey) {
     echo "API key not configured\n";
@@ -102,26 +87,14 @@ foreach ($calls as $call) {
         echo "Executed {$call['id']}: $response\n";
     }
 
-    if ($notificationEmail && $smtpHost && $smtpUser) {
-        $subject = "Llamada programada ejecutada";
-        $body = "Extensión: {$call['extension']}\nComportamiento: {$call['number']}\n";
-        $body .= $error ? "Error: $error" : "Respuesta: $response";
-        $mail = new PHPMailer(true);
-        try {
-            $mail->isSMTP();
-            $mail->Host = $smtpHost;
-            $mail->SMTPAuth = true;
-            $mail->Username = $smtpUser;
-            $mail->Password = $smtpPass;
-            if ($smtpSecure) { $mail->SMTPSecure = $smtpSecure; }
-            $mail->Port = $smtpPort ?: 587;
-            $mail->setFrom($smtpUser);
-            $mail->addAddress($notificationEmail);
-            $mail->Subject = $subject;
-            $mail->Body = $body;
-            $mail->send();
-        } catch (Exception $e) {
-            echo 'Email error: ' . $mail->ErrorInfo . "\n";
+    if ($telegramBotId && $telegramChatId) {
+        $behStmt = $pdo->prepare('SELECT name FROM behaviors WHERE code = :code');
+        $behStmt->execute([':code' => $call['number']]);
+        $behaviorName = $behStmt->fetchColumn();
+        if ($behaviorName) {
+            $text = urlencode("Comportamiento {$behaviorName} activado en la centralita");
+            $url = "https://api.telegram.org/bot{$telegramBotId}/sendMessage?chat_id={$telegramChatId}&text={$text}";
+            @file_get_contents($url);
         }
     }
 }
