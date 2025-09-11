@@ -34,7 +34,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
@@ -53,7 +54,8 @@ try {
 }
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_chat_id VARCHAR(255) DEFAULT NULL');
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 
 $settings = $pdo->query('SELECT api_key, default_extension, execution_time, change_timing, telegram_bot_id, telegram_chat_id FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
@@ -68,7 +70,7 @@ $message = '';
 $editId = intval($_GET['edit_id'] ?? 0);
 $editBehavior = null;
 if ($editId) {
-$stmt = $pdo->prepare('SELECT id, name, code, color FROM behaviors WHERE id = :id');
+    $stmt = $pdo->prepare('SELECT id, name, code, color FROM behaviors WHERE id = :id');
     $stmt->execute([':id' => $editId]);
     $editBehavior = $stmt->fetch();
 }
@@ -134,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete_behavior') {
         $behaviorId = intval($_POST['behavior_id'] ?? 0);
         if ($behaviorId) {
-        $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
+            $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
             $stmt->execute([':id' => $behaviorId]);
             $behaviorCode = $stmt->fetchColumn();
             if ($behaviorCode !== false) {
@@ -149,120 +151,135 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Configuración</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
+
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">PQ Multivoice</a>
-        <div class="navbar-nav">
-            <a class="nav-link" href="index.php">Resumen</a>
-            <a class="nav-link" href="calendar.php">Calendario</a>
-            <a class="nav-link" href="calls.php">Ejec. manualmente</a>
-            <a class="nav-link active" href="config.php">Configuración</a>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">PQ Multivoice</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="index.php">Resumen</a>
+                <a class="nav-link" href="calendar.php">Calendario</a>
+                <a class="nav-link" href="calls.php">Ejec. manualmente</a>
+                <a class="nav-link active" href="config.php">Configuración</a>
+            </div>
         </div>
+    </nav>
+    <div class="container">
+        <?php if ($message): ?>
+            <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
+
+        <h2>Configuración general</h2>
+        <form method="post" class="mb-5">
+            <input type="hidden" name="action" value="save_settings">
+            <div class="mb-3">
+                <label for="api_key" class="form-label">API Key</label>
+                <input type="text" class="form-control" name="api_key" id="api_key" value="<?= htmlspecialchars($apiKey) ?>">
+            </div>
+            <div class="mb-3">
+                <label for="default_extension" class="form-label">Extensión por defecto</label>
+                <input type="text" class="form-control" name="default_extension" id="default_extension" value="<?= htmlspecialchars($defaultExtension) ?>">
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="telegram_bot_id" class="form-label">ID del bot de Telegram</label>
+                    <input type="text" class="form-control" name="telegram_bot_id" id="telegram_bot_id" value="<?= htmlspecialchars($telegramBotId) ?>">
+                </div>
+                <div class="col-md-6">
+                    <label for="telegram_chat_id" class="form-label">ID del chat de Telegram</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="telegram_chat_id" id="telegram_chat_id" value="<?= htmlspecialchars($telegramChatId) ?>">
+                        <button class="btn btn-outline-secondary" type="button" id="testMessageBtn">Probar</button>
+                    </div>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="execution_time" class="form-label">Hora de ejecución</label>
+                    <input type="time" class="form-control" name="execution_time" id="execution_time" value="<?= htmlspecialchars($executionTime) ?>">
+
+                </div>
+                <div class="col-md-6">
+                    <label for="change_timing" class="form-label">Momento del cambio</label>
+                    <select class="form-select" name="change_timing" id="change_timing">
+                        <option value="start" <?= $changeTiming === 'start' ? 'selected' : '' ?>>Al inicio del periodo</option>
+                        <option value="end" <?= $changeTiming === 'end' ? 'selected' : '' ?>>Al final del periodo</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-secondary">Guardar configuración</button>
+        </form>
+
+        <h2>Comportamientos</h2>
+        <form method="post" class="mb-3">
+            <input type="hidden" name="action" value="save_behavior">
+            <?php if ($editBehavior): ?>
+                <input type="hidden" name="behavior_id" value="<?= $editBehavior['id'] ?>">
+            <?php endif; ?>
+            <div class="row mb-3">
+                <div class="col">
+                    <label for="behavior_name" class="form-label">Nombre</label>
+                    <input type="text" class="form-control" name="behavior_name" id="behavior_name" value="<?= htmlspecialchars($editBehavior['name'] ?? '') ?>" required>
+                </div>
+                <div class="col">
+                    <label for="behavior_code" class="form-label">Código</label>
+                    <input type="text" class="form-control" name="behavior_code" id="behavior_code" value="<?= htmlspecialchars($editBehavior['code'] ?? '') ?>" required>
+                </div>
+                <div class="col">
+                    <label for="behavior_color" class="form-label">Color</label>
+                    <input type="color" class="form-control form-control-color" name="behavior_color" id="behavior_color" value="<?= htmlspecialchars($editBehavior['color'] ?? '#0d6efd') ?>" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-secondary"><?= $editBehavior ? 'Actualizar comportamiento' : 'Guardar comportamiento' ?></button>
+            <?php if ($editBehavior): ?>
+                <a href="config.php" class="btn btn-link">Cancelar</a>
+            <?php endif; ?>
+        </form>
+
+        <?php if ($behaviors): ?>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Código</th>
+                        <th>Color</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($behaviors as $c): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($c['name']) ?></td>
+                            <td><?= htmlspecialchars($c['code']) ?></td>
+                            <td><span class="badge" style="background-color: <?= htmlspecialchars($c['color']) ?>;">&nbsp;&nbsp;&nbsp;</span></td>
+                            <td>
+                                <a class="btn btn-sm btn-primary" href="config.php?edit_id=<?= $c['id'] ?>">Editar</a>
+                                <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar comportamiento?');">
+                                    <input type="hidden" name="action" value="delete_behavior">
+                                    <input type="hidden" name="behavior_id" value="<?= $c['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
     </div>
-</nav>
-<div class="container">
-<?php if ($message): ?>
-        <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
-    <?php endif; ?>
-
-    <h2>Configuración general</h2>
-    <form method="post" class="mb-5">
-        <input type="hidden" name="action" value="save_settings">
-        <div class="mb-3">
-            <label for="api_key" class="form-label">API Key</label>
-            <input type="text" class="form-control" name="api_key" id="api_key" value="<?= htmlspecialchars($apiKey) ?>">
-        </div>
-        <div class="mb-3">
-            <label for="default_extension" class="form-label">Extensión por defecto</label>
-            <input type="text" class="form-control" name="default_extension" id="default_extension" value="<?= htmlspecialchars($defaultExtension) ?>">
-        </div>
-        <div class="mb-3">
-            <label for="telegram_bot_id" class="form-label">ID del bot de Telegram</label>
-            <input type="text" class="form-control" name="telegram_bot_id" id="telegram_bot_id" value="<?= htmlspecialchars($telegramBotId) ?>">
-        </div>
-        <div class="mb-3">
-            <label for="telegram_chat_id" class="form-label">ID del chat de Telegram</label>
-            <div class="input-group">
-                <input type="text" class="form-control" name="telegram_chat_id" id="telegram_chat_id" value="<?= htmlspecialchars($telegramChatId) ?>">
-                <button class="btn btn-outline-secondary" type="button" id="testMessageBtn">Probar</button>
-            </div>
-        </div>
-        <div class="mb-3">
-            <label for="execution_time" class="form-label">Hora de ejecución</label>
-            <input type="time" class="form-control" name="execution_time" id="execution_time" value="<?= htmlspecialchars($executionTime) ?>">
-        </div>
-        <div class="mb-3">
-            <label for="change_timing" class="form-label">Momento del cambio</label>
-            <select class="form-select" name="change_timing" id="change_timing">
-                <option value="start" <?= $changeTiming === 'start' ? 'selected' : '' ?>>Al inicio del periodo</option>
-                <option value="end" <?= $changeTiming === 'end' ? 'selected' : '' ?>>Al final del periodo</option>
-            </select>
-        </div>
-        <button type="submit" class="btn btn-secondary">Guardar configuración</button>
-    </form>
-
-    <h2>Comportamientos</h2>
-    <form method="post" class="mb-3">
-        <input type="hidden" name="action" value="save_behavior">
-        <?php if ($editBehavior): ?>
-            <input type="hidden" name="behavior_id" value="<?= $editBehavior['id'] ?>">
-        <?php endif; ?>
-        <div class="row mb-3">
-            <div class="col">
-                <label for="behavior_name" class="form-label">Nombre</label>
-                <input type="text" class="form-control" name="behavior_name" id="behavior_name" value="<?= htmlspecialchars($editBehavior['name'] ?? '') ?>" required>
-            </div>
-            <div class="col">
-                <label for="behavior_code" class="form-label">Código</label>
-                <input type="text" class="form-control" name="behavior_code" id="behavior_code" value="<?= htmlspecialchars($editBehavior['code'] ?? '') ?>" required>
-            </div>
-            <div class="col">
-                <label for="behavior_color" class="form-label">Color</label>
-                <input type="color" class="form-control form-control-color" name="behavior_color" id="behavior_color" value="<?= htmlspecialchars($editBehavior['color'] ?? '#0d6efd') ?>" required>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-secondary"><?= $editBehavior ? 'Actualizar comportamiento' : 'Guardar comportamiento' ?></button>
-        <?php if ($editBehavior): ?>
-            <a href="config.php" class="btn btn-link">Cancelar</a>
-        <?php endif; ?>
-    </form>
-
-    <?php if ($behaviors): ?>
-    <table class="table table-striped">
-        <thead><tr><th>Nombre</th><th>Código</th><th>Color</th><th>Acciones</th></tr></thead>
-        <tbody>
-        <?php foreach ($behaviors as $c): ?>
-            <tr>
-                <td><?= htmlspecialchars($c['name']) ?></td>
-                <td><?= htmlspecialchars($c['code']) ?></td>
-                <td><span class="badge" style="background-color: <?= htmlspecialchars($c['color']) ?>;">&nbsp;&nbsp;&nbsp;</span></td>
-                <td>
-                    <a class="btn btn-sm btn-primary" href="config.php?edit_id=<?= $c['id'] ?>">Editar</a>
-                    <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar comportamiento?');">
-                        <input type="hidden" name="action" value="delete_behavior">
-                        <input type="hidden" name="behavior_id" value="<?= $c['id'] ?>">
-                        <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
-                    </form>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
-    <?php endif; ?>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-document.getElementById('testMessageBtn').addEventListener('click', function () {
-    var form = this.closest('form');
-    form.querySelector('input[name="action"]').value = 'send_test_message';
-    form.submit();
-});
-</script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('testMessageBtn').addEventListener('click', function() {
+            var form = this.closest('form');
+            form.querySelector('input[name="action"]').value = 'send_test_message';
+            form.submit();
+        });
+    </script>
 </body>
+
 </html>
