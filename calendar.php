@@ -129,7 +129,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
         <div class="navbar-nav">
             <a class="nav-link" href="index.php">Resumen</a>
             <a class="nav-link active" href="calendar.php">Calendario</a>
-            <a class="nav-link" href="calls.php">Llamadas</a>
+            <a class="nav-link" href="calls.php">Ejec. manualmente</a>
             <a class="nav-link" href="config.php">Configuración</a>
         </div>
     </div>
@@ -170,7 +170,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 <?php endif; ?>
 
 <?php if (!empty($pendingCalls)): ?>
-    <h2 class="mt-4">Llamadas pendientes</h2>
+    <h2 class="mt-4">Cambios pendientes</h2>
     <table class="table table-striped">
         <thead><tr><th>Extensión</th><th>Comportamiento</th><th>Programada</th></tr></thead>
         <tbody>
@@ -184,7 +184,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
         </tbody>
     </table>
 <?php else: ?>
-    <p class="mt-4">No hay llamadas pendientes.</p>
+    <p class="mt-4">No hay cambios pendientes.</p>
 <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
