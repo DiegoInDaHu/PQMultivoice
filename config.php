@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/db.php';
+require __DIR__ . '/schedule_utils.php';
 // Configuration page with multi-date calendar using Bootstrap and Flatpickr
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
@@ -17,7 +18,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     default_extension VARCHAR(255) DEFAULT NULL,
     execution_time VARCHAR(5) DEFAULT "21:00",
     telegram_bot_id VARCHAR(255) DEFAULT NULL,
-    telegram_chat_id VARCHAR(255) DEFAULT NULL
+    telegram_chat_id VARCHAR(255) DEFAULT NULL,
+    change_timing VARCHAR(10) DEFAULT "start"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
@@ -40,6 +42,11 @@ try {
     // Column may already exist
 }
 try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN change_timing VARCHAR(10) DEFAULT 'start'");
+} catch (PDOException $e) {
+    // Column may already exist
+}
+try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_bot_id VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {
     // Column may already exist
@@ -48,10 +55,11 @@ try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_chat_id VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {}
 
-$settings = $pdo->query('SELECT api_key, default_extension, execution_time, telegram_bot_id, telegram_chat_id FROM settings WHERE id = 1')->fetch() ?: [];
+$settings = $pdo->query('SELECT api_key, default_extension, execution_time, change_timing, telegram_bot_id, telegram_chat_id FROM settings WHERE id = 1')->fetch() ?: [];
 $apiKey = $settings['api_key'] ?? '';
 $defaultExtension = $settings['default_extension'] ?? '';
 $executionTime = $settings['execution_time'] ?? '21:00';
+$changeTiming = $settings['change_timing'] ?? 'start';
 $telegramBotId = $settings['telegram_bot_id'] ?? '';
 $telegramChatId = $settings['telegram_chat_id'] ?? '';
 
@@ -74,14 +82,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $newTime = trim($_POST['execution_time'] ?? '21:00');
         $newBot = trim($_POST['telegram_bot_id'] ?? '');
         $newChat = trim($_POST['telegram_chat_id'] ?? '');
-        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time, telegram_bot_id, telegram_chat_id) VALUES (1, :api_key, :default_extension, :execution_time, :telegram_bot_id, :telegram_chat_id)');
-        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime, ':telegram_bot_id' => $newBot, ':telegram_chat_id' => $newChat]);
+        $newChange = $_POST['change_timing'] ?? 'start';
+        $stmt = $pdo->prepare('REPLACE INTO settings (id, api_key, default_extension, execution_time, change_timing, telegram_bot_id, telegram_chat_id) VALUES (1, :api_key, :default_extension, :execution_time, :change_timing, :telegram_bot_id, :telegram_chat_id)');
+        $stmt->execute([':api_key' => $newKey, ':default_extension' => $newDefault, ':execution_time' => $newTime, ':change_timing' => $newChange, ':telegram_bot_id' => $newBot, ':telegram_chat_id' => $newChat]);
         $apiKey = $newKey;
         $defaultExtension = $newDefault;
         $executionTime = $newTime;
+        $changeTiming = $newChange;
         $telegramBotId = $newBot;
         $telegramChatId = $newChat;
         $message = 'Configuración actualizada.';
+        rebuildScheduledCalls($pdo, $defaultExtension, $executionTime, $changeTiming);
     } elseif ($action === 'send_test_message') {
         $bot = trim($_POST['telegram_bot_id'] ?? $telegramBotId);
         $chat = trim($_POST['telegram_chat_id'] ?? $telegramChatId);
@@ -185,6 +196,13 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
         <div class="mb-3">
             <label for="execution_time" class="form-label">Hora de ejecución</label>
             <input type="time" class="form-control" name="execution_time" id="execution_time" value="<?= htmlspecialchars($executionTime) ?>">
+        </div>
+        <div class="mb-3">
+            <label for="change_timing" class="form-label">Momento del cambio</label>
+            <select class="form-select" name="change_timing" id="change_timing">
+                <option value="start" <?= $changeTiming === 'start' ? 'selected' : '' ?>>Al inicio del periodo</option>
+                <option value="end" <?= $changeTiming === 'end' ? 'selected' : '' ?>>Al final del periodo</option>
+            </select>
         </div>
         <button type="submit" class="btn btn-secondary">Guardar configuración</button>
     </form>

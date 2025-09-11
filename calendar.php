@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/db.php';
+require __DIR__ . '/schedule_utils.php';
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS scheduled_calls (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -16,13 +17,17 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     default_extension VARCHAR(255) DEFAULT NULL,
     execution_time VARCHAR(5) DEFAULT "21:00",
     telegram_bot_id VARCHAR(255) DEFAULT NULL,
-    telegram_chat_id VARCHAR(255) DEFAULT NULL
+    telegram_chat_id VARCHAR(255) DEFAULT NULL,
+    change_timing VARCHAR(10) DEFAULT "start"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
 } catch (PDOException $e) {}
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
+} catch (PDOException $e) {}
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN change_timing VARCHAR(10) DEFAULT 'start'");
 } catch (PDOException $e) {}
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_bot_id VARCHAR(255) DEFAULT NULL');
@@ -47,33 +52,11 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
     day DATE NOT NULL UNIQUE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
-$settings = $pdo->query('SELECT default_extension, execution_time FROM settings WHERE id = 1')->fetch() ?: [];
+$settings = $pdo->query('SELECT default_extension, execution_time, change_timing FROM settings WHERE id = 1')->fetch() ?: [];
 $defaultExtension = $settings['default_extension'] ?? '';
 $executionTime = $settings['execution_time'] ?? '21:00';
+$changeTiming = $settings['change_timing'] ?? 'start';
 
-// Helper to rebuild scheduled calls for a behavior
-function reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime) {
-    if (!$defaultExtension) {
-        return;
-    }
-    $stmt = $pdo->prepare('SELECT code FROM behaviors WHERE id = :id');
-    $stmt->execute([':id' => $behaviorId]);
-    $code = $stmt->fetchColumn();
-    if ($code === false) {
-        return;
-    }
-    $pdo->prepare('DELETE FROM scheduled_calls WHERE number = :code AND executed_at IS NULL')->execute([':code' => $code]);
-    $periods = $pdo->prepare('SELECT day FROM behavior_days WHERE behavior_id = :id');
-    $periods->execute([':id' => $behaviorId]);
-    foreach ($periods as $p) {
-        $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
-            ->execute([
-                ':ext' => $defaultExtension,
-                ':num' => $code,
-                ':sched' => $p['day'] . ' ' . $executionTime . ':00'
-            ]);
-    }
-}
 
 $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY name')->fetchAll();
 
@@ -102,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach ($dates as $d) {
                 $ins->execute([':id' => $behaviorId, ':day' => $d]);
             }
-            reprogramBehavior($pdo, $behaviorId, $defaultExtension, $executionTime);
+            rebuildScheduledCalls($pdo, $defaultExtension, $executionTime, $changeTiming);
             $message = 'Días actualizados.';
         }
     } else {
