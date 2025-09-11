@@ -107,6 +107,12 @@ foreach ($allPeriods as $row) {
     }
     $behaviorSchedules[$code]['dates'][] = $row['day'];
 }
+
+// Fetch pending scheduled calls with behavior names
+$pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.name AS behavior_name '
+    . 'FROM scheduled_calls sc JOIN behaviors b ON sc.number = b.code '
+    . 'WHERE sc.executed_at IS NULL ORDER BY sc.scheduled_at')
+    ->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -161,6 +167,24 @@ foreach ($allPeriods as $row) {
             <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
         <?php endforeach; ?>
     </div>
+<?php endif; ?>
+
+<?php if (!empty($pendingCalls)): ?>
+    <h2 class="mt-4">Llamadas pendientes</h2>
+    <table class="table table-striped">
+        <thead><tr><th>Extensión</th><th>Comportamiento</th><th>Programada</th></tr></thead>
+        <tbody>
+        <?php foreach ($pendingCalls as $call): ?>
+            <tr>
+                <td><?= htmlspecialchars($call['extension']) ?></td>
+                <td><?= htmlspecialchars($call['behavior_name']) ?></td>
+                <td><?= htmlspecialchars($call['scheduled_at']) ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+<?php else: ?>
+    <p class="mt-4">No hay llamadas pendientes.</p>
 <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
