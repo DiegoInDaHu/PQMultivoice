@@ -17,7 +17,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
     default_extension VARCHAR(255) DEFAULT NULL,
     execution_time VARCHAR(5) DEFAULT "21:00",
     telegram_bot_id VARCHAR(255) DEFAULT NULL,
-    telegram_chat_id VARCHAR(255) DEFAULT NULL
+    telegram_chat_id VARCHAR(255) DEFAULT NULL,
+    change_timing VARCHAR(10) DEFAULT "start"
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
@@ -32,6 +33,9 @@ try {
 } catch (PDOException $e) {}
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_chat_id VARCHAR(255) DEFAULT NULL');
+} catch (PDOException $e) {}
+try {
+    $pdo->exec("ALTER TABLE settings ADD COLUMN change_timing VARCHAR(10) DEFAULT 'start'");
 } catch (PDOException $e) {}
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
