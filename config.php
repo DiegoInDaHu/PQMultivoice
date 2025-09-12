@@ -161,7 +161,7 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color:#003883">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">PQ Multivoice</a>
+            <a class="navbar-brand" href="#">Comportamientos Multivoice</a>
             <div class="navbar-nav">
                 <a class="nav-link" href="index.php">Resumen</a>
                 <a class="nav-link" href="calendar.php">Calendario</a>
