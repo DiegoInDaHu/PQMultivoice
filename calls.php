@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
 <?php endif; ?>
 
-    <h2>Llamada inmediata</h2>
+    <h2>Cambiar comportamiento</h2>
     <form method="post" class="mb-5">
         <input type="hidden" name="action" value="call_now">
         <div class="row mb-3">
@@ -131,10 +131,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </select>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">Llamar</button>
+        <button type="submit" class="btn btn-primary">Cambiar</button>
     </form>
 
-    <h2>Llamadas realizadas</h2>
+    <h2>Códigos lanzados</h2>
     <table class="table table-striped">
         <thead><tr><th>Extensión</th><th>Comportamiento</th><th>Fecha</th></tr></thead>
         <tbody>
