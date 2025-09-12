@@ -16,3 +16,6 @@ Interfaz web en PHP para realizar llamadas mediante la API de Siptize.
 5. Ejecute periódicamente `run_scheduled.php` (por ejemplo, con `cron`) para que las llamadas pendientes se realicen en la fecha indicada. Se enviará un correo de notificación mediante SMTP cuando se ejecute cada llamada.
 
 La interfaz utiliza Bootstrap para un diseño más amigable y Flatpickr para el calendario de selección múltiple.
+
+## Maquina Virtual
+- Para actualizar el proyecto, conectar por SSH a la 192.168.168.27 > cd /var/www/PQMultivoice > git pull
