@@ -138,10 +138,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <table class="table table-striped">
         <thead><tr><th>Extensión</th><th>Comportamiento</th><th>Fecha</th></tr></thead>
         <tbody>
-        <?php foreach ($pdo->query('SELECT extension, number, created_at FROM calls ORDER BY id DESC') as $row): ?>
+        <?php foreach ($pdo->query('SELECT c.extension, c.number, b.name AS behavior_name, c.created_at FROM calls c LEFT JOIN behaviors b ON c.number = b.code ORDER BY c.id DESC') as $row): ?>
             <tr>
                 <td><?= htmlspecialchars($row['extension']) ?></td>
-                <td><?= htmlspecialchars($row['number']) ?></td>
+                <td><?= htmlspecialchars($row['behavior_name'] ?? '') ?> (<?= htmlspecialchars($row['number']) ?>)</td>
                 <td><?= htmlspecialchars($row['created_at']) ?></td>
             </tr>
         <?php endforeach; ?>

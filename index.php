@@ -56,14 +56,14 @@ foreach ($allPeriods as $row) {
 </nav>
 <div class="container">
     <h2 class="d-flex justify-content-center mb-3">Calendario</h2>
-    <div id="calendarWrapper" class="d-flex justify-content-center">
+    <div id="calendarWrapper" class="d-flex flex-column align-items-center">
         <input type="text" id="calendar" class="form-control">
-    </div>
-    <div class="mt-3">
-        <?php foreach ($codeColors as $code => $color): ?>
-            <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
-            <?= htmlspecialchars($codeSchedules[$code]['name']) ?>&nbsp;
-        <?php endforeach; ?>
+        <div class="mt-3 text-center">
+            <?php foreach ($codeColors as $code => $color): ?>
+                <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
+                <?= htmlspecialchars($codeSchedules[$code]['name']) ?>&nbsp;
+            <?php endforeach; ?>
+        </div>
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
