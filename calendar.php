@@ -150,12 +150,6 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
             <p>No hay comportamientos guardados. Agregue uno en Configuración.</p>
         <?php else: ?>
             <h2>Configurar calendario</h2>
-            <div class="mb-3">
-                <?php foreach ($behaviorColors as $code => $color): ?>
-                    <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
-                    <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
-                <?php endforeach; ?>
-            </div>
             <form method="post" class="mb-3">
                 <div class="row mb-3">
                     <div class="col">
@@ -177,6 +171,13 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 
                 <button type="submit" class="btn btn-success">Guardar días</button>
             </form>
+
+            <div class="mt-3">
+                <?php foreach ($behaviorColors as $code => $color): ?>
+                    <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
+                    <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
+                <?php endforeach; ?>
+            </div>
         <?php endif; ?>
 
         <?php if (!empty($pendingCalls)): ?>
@@ -216,7 +217,6 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
             mode: "multiple",
             dateFormat: "Y-m-d",
             defaultDate: existingDates,
-            inline: true,
             onChange: function(selDates, dateStr, instance) {
                 var dates = selDates.map(function(d) {
                     return instance.formatDate(d, 'Y-m-d');
