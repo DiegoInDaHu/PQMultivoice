@@ -22,19 +22,24 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS settings (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN default_extension VARCHAR(255) DEFAULT NULL');
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN change_timing VARCHAR(10) DEFAULT 'start'");
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_bot_id VARCHAR(255) DEFAULT NULL');
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 try {
     $pdo->exec('ALTER TABLE settings ADD COLUMN telegram_chat_id VARCHAR(255) DEFAULT NULL');
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -44,7 +49,8 @@ $pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 try {
     $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
-} catch (PDOException $e) {}
+} catch (PDOException $e) {
+}
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -116,105 +122,118 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <title>Calendario</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
 </head>
+
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">PQ Multivoice</a>
-        <div class="navbar-nav">
-            <a class="nav-link" href="index.php">Resumen</a>
-            <a class="nav-link active" href="calendar.php">Calendario</a>
-            <a class="nav-link" href="calls.php">Ejec. manualmente</a>
-            <a class="nav-link" href="config.php">Configuración</a>
-        </div>
-    </div>
-</nav>
-<div class="container">
-<?php if ($message): ?>
-    <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
-<?php endif; ?>
-<?php if (!$behaviors): ?>
-    <p>No hay comportamientos guardados. Agregue uno en Configuración.</p>
-<?php else: ?>
-    <h2>Configurar calendario</h2>
-    <form method="post" class="mb-3">
-        <div class="row mb-3">
-            <div class="col">
-                <label for="behavior" class="form-label">Comportamiento</label>
-                <select class="form-select" name="behavior" id="behavior" onchange="location='calendar.php?behavior='+this.value;">
-                    <?php foreach ($behaviors as $b): ?>
-                        <option value="<?= $b['id'] ?>" <?= $b['id']==$behaviorId ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">PQ Multivoice</a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="index.php">Resumen</a>
+                <a class="nav-link active" href="calendar.php">Calendario</a>
+                <a class="nav-link" href="calls.php">Ejec. manualmente</a>
+                <a class="nav-link" href="config.php">Configuración</a>
             </div>
         </div>
-        <div class="mb-3">
-            <label for="datePicker" class="form-label">Días</label>
-            <input type="text" id="datePicker" class="form-control">
-            <input type="hidden" name="dates" id="dates">
-        </div>
-        <button type="submit" class="btn btn-success">Guardar días</button>
-    </form>
+    </nav>
+    <div class="container">
+        <?php if ($message): ?>
+            <div class="alert alert-info"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
+        <?php if (!$behaviors): ?>
+            <p>No hay comportamientos guardados. Agregue uno en Configuración.</p>
+        <?php else: ?>
+            <h2>Configurar calendario</h2>
+            <form method="post" class="mb-3">
+                <div class="row mb-3">
+                    <div class="col">
+                        <label for="behavior" class="form-label">Comportamiento</label>
+                        <select class="form-select" name="behavior" id="behavior" onchange="location='calendar.php?behavior='+this.value;">
+                            <?php foreach ($behaviors as $b): ?>
+                                <option value="<?= $b['id'] ?>" <?= $b['id'] == $behaviorId ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col">
+                        <div class="mb-3">
+                            <label for="datePicker" class="form-label">Días</label>
+                            <input type="text" id="datePicker" class="form-control">
+                            <input type="hidden" name="dates" id="dates">
+                        </div>
+                    </div>
+                </div>
 
-    <div class="mt-3">
-        <?php foreach ($behaviorColors as $code => $color): ?>
-            <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
-            <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
-        <?php endforeach; ?>
+                <button type="submit" class="btn btn-success">Guardar días</button>
+            </form>
+
+            <div class="mt-3">
+                <?php foreach ($behaviorColors as $code => $color): ?>
+                    <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
+                    <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!empty($pendingCalls)): ?>
+            <h2 class="mt-4">Cambios pendientes</h2>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Extensión</th>
+                        <th>Comportamiento</th>
+                        <th>Programada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($pendingCalls as $call): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($call['extension']) ?></td>
+                            <td><?= htmlspecialchars($call['behavior_name']) ?></td>
+                            <td><?= htmlspecialchars($call['scheduled_at']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php else: ?>
+            <p class="mt-4">No hay cambios pendientes.</p>
+        <?php endif; ?>
     </div>
-<?php endif; ?>
-
-<?php if (!empty($pendingCalls)): ?>
-    <h2 class="mt-4">Cambios pendientes</h2>
-    <table class="table table-striped">
-        <thead><tr><th>Extensión</th><th>Comportamiento</th><th>Programada</th></tr></thead>
-        <tbody>
-        <?php foreach ($pendingCalls as $call): ?>
-            <tr>
-                <td><?= htmlspecialchars($call['extension']) ?></td>
-                <td><?= htmlspecialchars($call['behavior_name']) ?></td>
-                <td><?= htmlspecialchars($call['scheduled_at']) ?></td>
-            </tr>
-        <?php endforeach; ?>
-        </tbody>
-    </table>
-<?php else: ?>
-    <p class="mt-4">No hay cambios pendientes.</p>
-<?php endif; ?>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-<script>
-var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
-var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
-var existingDates = <?php echo json_encode(array_column($behaviorDays, 'day')); ?>;
-document.getElementById('dates').value = existingDates.join(',');
-flatpickr("#datePicker", {
-    locale: "es",
-    mode: "multiple",
-    dateFormat: "Y-m-d",
-    defaultDate: existingDates,
-    onChange: function(selDates, dateStr, instance) {
-        var dates = selDates.map(function(d){return instance.formatDate(d, 'Y-m-d');});
-        document.getElementById('dates').value = dates.join(',');
-    },
-    onDayCreate: function(dObj, dStr, fp, dayElem) {
-        var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
-        Object.keys(behaviorSchedules).forEach(function(code) {
-            if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
-                dayElem.style.backgroundColor = behaviorColors[code];
-                dayElem.style.color = '#fff';
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script>
+        var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
+        var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
+        var existingDates = <?php echo json_encode(array_column($behaviorDays, 'day')); ?>;
+        document.getElementById('dates').value = existingDates.join(',');
+        flatpickr("#datePicker", {
+            locale: "es",
+            mode: "multiple",
+            dateFormat: "Y-m-d",
+            defaultDate: existingDates,
+            onChange: function(selDates, dateStr, instance) {
+                var dates = selDates.map(function(d) {
+                    return instance.formatDate(d, 'Y-m-d');
+                });
+                document.getElementById('dates').value = dates.join(',');
+            },
+            onDayCreate: function(dObj, dStr, fp, dayElem) {
+                var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
+                Object.keys(behaviorSchedules).forEach(function(code) {
+                    if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
+                        dayElem.style.backgroundColor = behaviorColors[code];
+                        dayElem.style.color = '#fff';
+                    }
+                });
             }
         });
-    }
-});
-</script>
+    </script>
 </body>
-</html>
 
+</html>
