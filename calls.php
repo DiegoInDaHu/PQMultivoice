@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </select>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary">Cambiar</button>
+        <button type="submit" class="btn btn-success">Cambiar</button>
     </form>
 
     <h2>Códigos lanzados</h2>

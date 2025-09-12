@@ -195,7 +195,7 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
                     <label for="telegram_chat_id" class="form-label">ID del chat de Telegram</label>
                     <div class="input-group">
                         <input type="text" class="form-control" name="telegram_chat_id" id="telegram_chat_id" value="<?= htmlspecialchars($telegramChatId) ?>">
-                        <button class="btn btn-outline-secondary" type="button" id="testMessageBtn">Probar</button>
+                        <button class="btn btn-secondary" type="button" id="testMessageBtn">Probar</button>
                     </div>
                 </div>
             </div>
@@ -213,7 +213,7 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
                     </select>
                 </div>
             </div>
-            <button type="submit" class="btn btn-secondary">Guardar configuración</button>
+            <button type="submit" class="btn btn-success">Guardar configuración</button>
         </form>
 
         <h2>Comportamientos</h2>
@@ -236,7 +236,7 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
                     <input type="color" class="form-control form-control-color" name="behavior_color" id="behavior_color" value="<?= htmlspecialchars($editBehavior['color'] ?? '#0d6efd') ?>" required>
                 </div>
             </div>
-            <button type="submit" class="btn btn-secondary"><?= $editBehavior ? 'Actualizar comportamiento' : 'Guardar comportamiento' ?></button>
+            <button type="submit" class="btn btn-success"><?= $editBehavior ? 'Actualizar comportamiento' : 'Guardar comportamiento' ?></button>
             <?php if ($editBehavior): ?>
                 <a href="config.php" class="btn btn-link">Cancelar</a>
             <?php endif; ?>
