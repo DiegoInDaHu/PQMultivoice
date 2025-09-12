@@ -131,7 +131,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color:#003883">
         <div class="container-fluid">
             <a class="navbar-brand" href="#">PQ Multivoice</a>
             <div class="navbar-nav">
