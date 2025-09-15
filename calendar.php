@@ -69,32 +69,33 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
 
 $message = '';
 $behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['id'] ?? 0));
+$behaviorCode = '';
+$behaviorColor = '#0d6efd';
+foreach ($behaviors as $b) {
+    if ($b['id'] == $behaviorId) {
+        $behaviorCode = $b['code'];
+        $behaviorColor = $b['color'] ?: '#0d6efd';
+        break;
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $datesStr = trim($_POST['dates'] ?? '');
     $dates = $datesStr !== '' ? array_filter(array_map('trim', explode(',', $datesStr))) : [];
     if ($behaviorId && $defaultExtension !== '') {
-        $overlap = false;
-        $check = $pdo->prepare('SELECT behavior_id FROM behavior_days WHERE day = :day');
-        foreach ($dates as $d) {
-            $check->execute([':day' => $d]);
-            $existing = $check->fetchColumn();
-            if ($existing && intval($existing) !== $behaviorId) {
-                $message = 'Día ' . htmlspecialchars($d) . ' solapado con otro comportamiento.';
-                $overlap = true;
-                break;
-            }
-        }
-        if (!$overlap) {
-            $pdo->prepare('DELETE FROM behavior_days WHERE behavior_id = :bid')
-                ->execute([':bid' => $behaviorId]);
+        $pdo->prepare('DELETE FROM behavior_days WHERE behavior_id = :bid')
+            ->execute([':bid' => $behaviorId]);
+        if (!empty($dates)) {
+            $placeholders = implode(',', array_fill(0, count($dates), '?'));
+            $pdo->prepare("DELETE FROM behavior_days WHERE day IN ($placeholders)")
+                ->execute($dates);
             $ins = $pdo->prepare('INSERT INTO behavior_days(behavior_id, day) VALUES (:id, :day)');
             foreach ($dates as $d) {
                 $ins->execute([':id' => $behaviorId, ':day' => $d]);
             }
-            rebuildScheduledCalls($pdo, $defaultExtension, $executionTime, $changeTiming);
-            $message = 'Días actualizados.';
         }
+        rebuildScheduledCalls($pdo, $defaultExtension, $executionTime, $changeTiming);
+        $message = 'Días actualizados.';
     } else {
         $message = 'Todos los campos son obligatorios.';
     }
@@ -213,9 +214,45 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
     <script>
         var behaviorSchedules = <?php echo json_encode($behaviorSchedules); ?>;
         var behaviorColors = <?php echo json_encode($behaviorColors); ?>;
+        var currentBehaviorCode = <?php echo json_encode($behaviorCode); ?>;
+        var currentBehaviorColor = <?php echo json_encode($behaviorColor); ?>;
         var existingDates = <?php echo json_encode(array_column($behaviorDays, 'day')); ?>;
         document.getElementById('dates').value = existingDates.join(',');
-        flatpickr("#datePicker", {
+
+        var overwriteDays = [];
+
+        function refreshColors(fp) {
+            overwriteDays = [];
+            var selectedDates = document.getElementById('dates').value.split(',').filter(Boolean);
+            fp.calendarContainer.querySelectorAll('.flatpickr-day').forEach(function(dayElem) {
+                var date = fp.formatDate(dayElem.dateObj, 'Y-m-d');
+                var color = '';
+                var textColor = '';
+                if (selectedDates.indexOf(date) !== -1) {
+                    color = currentBehaviorColor;
+                    textColor = '#fff';
+                    Object.keys(behaviorSchedules).forEach(function(code) {
+                        if (code !== currentBehaviorCode && behaviorSchedules[code].dates.indexOf(date) !== -1) {
+                            overwriteDays.push(date);
+                        }
+                    });
+                } else {
+                    Object.keys(behaviorSchedules).forEach(function(code) {
+                        if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
+                            color = behaviorColors[code];
+                            textColor = '#fff';
+                        }
+                    });
+                }
+                dayElem.style.backgroundColor = color;
+                dayElem.style.color = textColor;
+                if (color) {
+                    dayElem.style.boxShadow = 'none';
+                }
+            });
+        }
+
+        var fp = flatpickr("#datePicker", {
             locale: "es",
             mode: "multiple",
             dateFormat: "Y-m-d",
@@ -225,15 +262,25 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                     return instance.formatDate(d, 'Y-m-d');
                 });
                 document.getElementById('dates').value = dates.join(',');
+                refreshColors(instance);
             },
-            onDayCreate: function(dObj, dStr, fp, dayElem) {
-                var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
-                Object.keys(behaviorSchedules).forEach(function(code) {
-                    if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
-                        dayElem.style.backgroundColor = behaviorColors[code];
-                        dayElem.style.color = '#fff';
-                    }
-                });
+            onMonthChange: function(selDates, dateStr, instance) {
+                refreshColors(instance);
+            },
+            onYearChange: function(selDates, dateStr, instance) {
+                refreshColors(instance);
+            },
+            onReady: function(selDates, dateStr, instance) {
+                refreshColors(instance);
+            }
+        });
+
+        document.querySelector('form').addEventListener('submit', function(e) {
+            if (overwriteDays.length > 0) {
+                var msg = 'Estos días se sobrescribirán: ' + overwriteDays.join(', ') + '. ¿Continuar?';
+                if (!confirm(msg)) {
+                    e.preventDefault();
+                }
             }
         });
     </script>
