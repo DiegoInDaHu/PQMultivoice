@@ -26,6 +26,7 @@ function rebuildScheduledCalls(PDO $pdo, string $defaultExtension, string $execu
 
     $prevDay = null;
     $prevCode = null;
+    $now = new DateTime();
 
     foreach ($rows as $row) {
         $day = new DateTime($row['day']);
@@ -45,12 +46,15 @@ function rebuildScheduledCalls(PDO $pdo, string $defaultExtension, string $execu
             } else {
                 $schedDay = $day;
             }
-            $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
-                ->execute([
-                    ':ext' => $defaultExtension,
-                    ':num' => $code,
-                    ':sched' => $schedDay->format('Y-m-d') . ' ' . $executionTime . ':00'
-                ]);
+            $scheduledAt = $schedDay->format('Y-m-d') . ' ' . $executionTime . ':00';
+            if (new DateTime($scheduledAt) >= $now) {
+                $pdo->prepare('INSERT INTO scheduled_calls(extension, number, scheduled_at) VALUES (:ext, :num, :sched)')
+                    ->execute([
+                        ':ext' => $defaultExtension,
+                        ':num' => $code,
+                        ':sched' => $scheduledAt
+                    ]);
+            }
         }
         $prevDay = $day;
         $prevCode = $code;
