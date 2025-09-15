@@ -219,10 +219,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
         var existingDates = <?php echo json_encode(array_column($behaviorDays, 'day')); ?>;
         document.getElementById('dates').value = existingDates.join(',');
 
-        var overwriteDays = [];
-
         function refreshColors(fp) {
-            overwriteDays = [];
             var selectedDates = document.getElementById('dates').value.split(',').filter(Boolean);
             fp.calendarContainer.querySelectorAll('.flatpickr-day').forEach(function(dayElem) {
                 var date = fp.formatDate(dayElem.dateObj, 'Y-m-d');
@@ -231,11 +228,6 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                 if (selectedDates.indexOf(date) !== -1) {
                     color = currentBehaviorColor;
                     textColor = '#fff';
-                    Object.keys(behaviorSchedules).forEach(function(code) {
-                        if (code !== currentBehaviorCode && behaviorSchedules[code].dates.indexOf(date) !== -1) {
-                            overwriteDays.push(date);
-                        }
-                    });
                 } else {
                     Object.keys(behaviorSchedules).forEach(function(code) {
                         if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
@@ -262,6 +254,10 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                     return instance.formatDate(d, 'Y-m-d');
                 });
                 document.getElementById('dates').value = dates.join(',');
+                if (!behaviorSchedules[currentBehaviorCode]) {
+                    behaviorSchedules[currentBehaviorCode] = {dates: []};
+                }
+                behaviorSchedules[currentBehaviorCode].dates = dates;
                 refreshColors(instance);
             },
             onMonthChange: function(selDates, dateStr, instance) {
@@ -272,15 +268,6 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
             },
             onReady: function(selDates, dateStr, instance) {
                 refreshColors(instance);
-            }
-        });
-
-        document.querySelector('form').addEventListener('submit', function(e) {
-            if (overwriteDays.length > 0) {
-                var msg = 'Estos días se sobrescribirán: ' + overwriteDays.join(', ') + '. ¿Continuar?';
-                if (!confirm(msg)) {
-                    e.preventDefault();
-                }
             }
         });
     </script>
