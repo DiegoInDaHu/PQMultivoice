@@ -1,17 +1,13 @@
 <?php
 function nextWorkingDay(DateTime $date): DateTime {
     $d = clone $date;
-    do {
-        $d->modify('+1 day');
-    } while (in_array($d->format('N'), [6,7]));
+    $d->modify('+1 day');
     return $d;
 }
 
 function previousWorkingDay(DateTime $date): DateTime {
     $d = clone $date;
-    do {
-        $d->modify('-1 day');
-    } while (in_array($d->format('N'), [6,7]));
+    $d->modify('-1 day');
     return $d;
 }
 
