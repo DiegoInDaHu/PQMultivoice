@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/auth.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/schedule_utils.php';
 // Configuration page with multi-date calendar using Bootstrap and Flatpickr
@@ -36,6 +37,12 @@ try {
     $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
 } catch (PDOException $e) {
 }
+
+$pdo->exec('CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 
 try {
     $pdo->exec("ALTER TABLE settings ADD COLUMN execution_time VARCHAR(5) DEFAULT '21:00'");
@@ -108,6 +115,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $telegramBotId = $bot;
         $telegramChatId = $chat;
+    } elseif ($action === 'save_user') {
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+        if ($username !== '' && $password !== '') {
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            try {
+                $stmt = $pdo->prepare('INSERT INTO users(username, password) VALUES (:username, :password)');
+                $stmt->execute([':username' => $username, ':password' => $hash]);
+                $message = 'Usuario guardado.';
+            } catch (PDOException $e) {
+                $message = 'Nombre de usuario ya existe.';
+            }
+        } else {
+            $message = 'Nombre de usuario y contraseña son obligatorios.';
+        }
+    } elseif ($action === 'delete_user') {
+        $userId = intval($_POST['user_id'] ?? 0);
+        if ($userId) {
+            $pdo->prepare('DELETE FROM users WHERE id = :id')->execute([':id' => $userId]);
+            $message = 'Usuario eliminado.';
+        }
     } elseif ($action === 'save_behavior') {
         $behaviorId = intval($_POST['behavior_id'] ?? 0);
         $behaviorName = trim($_POST['behavior_name'] ?? '');
@@ -147,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+$users = $pdo->query('SELECT id, username FROM users ORDER BY username')->fetchAll();
 $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY name')->fetchAll();
 ?>
 <!DOCTYPE html>
@@ -164,10 +193,11 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
         <div class="container-fluid">
             <a class="navbar-brand" href="#">Comportamientos Multivoice</a>
             <div class="navbar-nav">
-                <a class="nav-link" href="index.php">Resumen</a>
+                <a class="nav-link" href="dashboard.php">Resumen</a>
                 <a class="nav-link" href="calendar.php">Calendario</a>
                 <a class="nav-link" href="calls.php">Ejec. manualmente</a>
                 <a class="nav-link active" href="config.php">Configuración</a>
+                <a class="nav-link" href="logout.php">Salir</a>
             </div>
         </div>
     </nav>
@@ -216,6 +246,45 @@ $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY n
             </div>
             <button type="submit" class="btn btn-success">Guardar configuración</button>
         </form>
+        <h2>Usuarios</h2>
+        <form method="post" class="mb-3">
+            <input type="hidden" name="action" value="save_user">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label for="username" class="form-label">Usuario</label>
+                    <input type="text" class="form-control" name="username" id="username" required>
+                </div>
+                <div class="col-md-6">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" name="password" id="password" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success">Añadir usuario</button>
+        </form>
+        <?php if ($users): ?>
+            <table class="table table-striped mb-5">
+                <thead>
+                    <tr>
+                        <th>Usuario</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($users as $u): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($u['username']) ?></td>
+                            <td>
+                                <form method="post" style="display:inline-block" onsubmit="return confirm('¿Eliminar usuario?');">
+                                    <input type="hidden" name="action" value="delete_user">
+                                    <input type="hidden" name="user_id" value="<?= $u['id'] ?>">
+                                    <button type="submit" class="btn btn-sm btn-danger">Eliminar</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        <?php endif; ?>
 
         <h2>Comportamientos</h2>
         <form method="post" class="mb-3">
