@@ -136,7 +136,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color:#003883">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Comportamientos Multivoice</a>
+        <img src="proquo_pqmultivoice_blanco.png" alt="Logo" style="max-width: 120px;">
             <div class="navbar-nav">
                 <a class="nav-link" href="dashboard.php">Resumen</a>
                 <a class="nav-link active" href="calendar.php">Calendario</a>
