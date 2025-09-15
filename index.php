@@ -1,94 +1,65 @@
 <?php
 require __DIR__ . '/db.php';
+session_start();
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS behaviors (
+$pdo->exec('CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    code VARCHAR(255) NOT NULL UNIQUE,
-    color VARCHAR(7) DEFAULT "#0d6efd"
+    username VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-try {
-    $pdo->exec("ALTER TABLE behaviors ADD COLUMN color VARCHAR(7) DEFAULT '#0d6efd'");
-} catch (PDOException $e) {}
 
-$pdo->exec('CREATE TABLE IF NOT EXISTS behavior_days (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    behavior_id INT NOT NULL,
-    day DATE NOT NULL UNIQUE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
-$allPeriods = $pdo->query('SELECT bd.day, b.code, b.name, b.color FROM behavior_days bd JOIN behaviors b ON bd.behavior_id = b.id')->fetchAll();
-$codeSchedules = [];
-$codeColors = [];
-foreach ($allPeriods as $row) {
-    $code = $row['code'];
-    if (!isset($codeSchedules[$code])) {
-        $codeSchedules[$code] = ['name' => $row['name'], 'dates' => []];
-        $codeColors[$code] = $row['color'] ?: '#0d6efd';
+if (isset($_SESSION['user_id'])) {
+    header('Location: dashboard.php');
+    exit;
+}
+
+$message = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = trim($_POST['username'] ?? '');
+    $password = $_POST['password'] ?? '';
+    if ($username !== '' && $password !== '') {
+        $stmt = $pdo->prepare('SELECT id, password FROM users WHERE username = :username');
+        $stmt->execute([':username' => $username]);
+        $user = $stmt->fetch();
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $username;
+            header('Location: dashboard.php');
+            exit;
+        } else {
+            $message = 'Usuario o contraseña incorrectos.';
+        }
+    } else {
+        $message = 'Nombre de usuario y contraseña son obligatorios.';
     }
-    $codeSchedules[$code]['dates'][] = $row['day'];
 }
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Resumen</title>
-    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Login</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
-    <style>
-    #calendarWrapper .flatpickr-calendar {
-        transform: scale(1.3);
-        transform-origin: top center;
-    }
-    </style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color:#003883">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="#">Comportamientos Multivoice</a>
-        <div class="navbar-nav">
-            <a class="nav-link active" href="index.php">Resumen</a>
-            <a class="nav-link" href="calendar.php">Calendario</a>
-            <a class="nav-link" href="calls.php">Ejec. manualmente</a>
-            <a class="nav-link" href="config.php">Configuración</a>
+<div class="container mt-5" style="max-width: 400px;">
+    <h2 class="mb-4 text-center">Iniciar sesión</h2>
+    <?php if ($message): ?>
+        <div class="alert alert-danger"><?= htmlspecialchars($message) ?></div>
+    <?php endif; ?>
+    <form method="post">
+        <div class="mb-3">
+            <label for="username" class="form-label">Usuario</label>
+            <input type="text" class="form-control" name="username" id="username" required>
         </div>
-    </div>
-</nav>
-<div class="container">
-    <h2 class="d-flex justify-content-center mb-3">Calendario</h2>
-    <div id="calendarWrapper" class="d-flex flex-column align-items-center">
-        <div class="mb-3 text-center">
-            <?php foreach ($codeColors as $code => $color): ?>
-                <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
-                <?= htmlspecialchars($codeSchedules[$code]['name']) ?>&nbsp;
-            <?php endforeach; ?>
+        <div class="mb-3">
+            <label for="password" class="form-label">Contraseña</label>
+            <input type="password" class="form-control" name="password" id="password" required>
         </div>
-        <input type="text" id="calendar" class="form-control">
-    </div>
+        <button type="submit" class="btn btn-primary w-100">Entrar</button>
+    </form>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
-<script>
-var codeSchedules = <?php echo json_encode($codeSchedules); ?>;
-var codeColors = <?php echo json_encode($codeColors); ?>;
-flatpickr("#calendar", {
-    locale: "es",
-    inline: true,
-    clickOpens: false,
-    onDayCreate: function(dObj, dStr, fp, dayElem) {
-        var date = fp.formatDate(dayElem.dateObj, "Y-m-d");
-        Object.keys(codeSchedules).forEach(function(code) {
-            if (codeSchedules[code].dates.indexOf(date) !== -1) {
-                dayElem.style.backgroundColor = codeColors[code];
-                dayElem.style.color = '#fff';
-            }
-        });
-    }
-});
-document.getElementById('calendar').style.display = 'none';
-</script>
 </body>
 </html>

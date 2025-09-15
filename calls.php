@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/auth.php';
 require __DIR__ . '/db.php';
 
 $pdo->exec('CREATE TABLE IF NOT EXISTS calls (
@@ -103,10 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="container-fluid">
         <a class="navbar-brand" href="#">Comportamientos Multivoice</a>
         <div class="navbar-nav">
-            <a class="nav-link" href="index.php">Resumen</a>
+            <a class="nav-link" href="dashboard.php">Resumen</a>
             <a class="nav-link" href="calendar.php">Calendario</a>
             <a class="nav-link active" href="calls.php">Ejec. manualmente</a>
             <a class="nav-link" href="config.php">Configuración</a>
+            <a class="nav-link" href="logout.php">Salir</a>
         </div>
     </div>
 </nav>

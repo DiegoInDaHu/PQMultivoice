@@ -1,4 +1,5 @@
 <?php
+require __DIR__ . '/auth.php';
 require __DIR__ . '/db.php';
 require __DIR__ . '/schedule_utils.php';
 
@@ -136,10 +137,11 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
         <div class="container-fluid">
             <a class="navbar-brand" href="#">Comportamientos Multivoice</a>
             <div class="navbar-nav">
-                <a class="nav-link" href="index.php">Resumen</a>
+                <a class="nav-link" href="dashboard.php">Resumen</a>
                 <a class="nav-link active" href="calendar.php">Calendario</a>
                 <a class="nav-link" href="calls.php">Ejec. manualmente</a>
                 <a class="nav-link" href="config.php">Configuración</a>
+                <a class="nav-link" href="logout.php">Salir</a>
             </div>
         </div>
     </nav>
