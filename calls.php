@@ -80,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $behStmt->execute([':code' => $number]);
                 $behaviorName = $behStmt->fetchColumn();
                 $behaviorLabel = $behaviorName ?: $number;
-                $text = urlencode("Comportamiento {$behaviorLabel} activado manualmente en la extensión {$extension}");
+                $text = urlencode("Comportamiento {$behaviorLabel} activado manualmente");
                 $url = "https://api.telegram.org/bot{$telegramBotId}/sendMessage?chat_id={$telegramChatId}&text={$text}";
                 @file_get_contents($url);
             }
