@@ -79,11 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $behStmt = $pdo->prepare('SELECT name FROM behaviors WHERE code = :code');
                 $behStmt->execute([':code' => $number]);
                 $behaviorName = $behStmt->fetchColumn();
-                if ($behaviorName) {
-                    $text = urlencode("Comportamiento {$behaviorName} activado en la centralita");
-                    $url = "https://api.telegram.org/bot{$telegramBotId}/sendMessage?chat_id={$telegramChatId}&text={$text}";
-                    @file_get_contents($url);
-                }
+                $behaviorLabel = $behaviorName ?: $number;
+                $text = urlencode("Comportamiento {$behaviorLabel} activado manualmente en la extensión {$extension}");
+                $url = "https://api.telegram.org/bot{$telegramBotId}/sendMessage?chat_id={$telegramChatId}&text={$text}";
+                @file_get_contents($url);
             }
         } else {
             $message = 'Both extension and comportamiento are required.';
