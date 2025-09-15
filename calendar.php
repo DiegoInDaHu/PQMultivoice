@@ -119,7 +119,7 @@ foreach ($allPeriods as $row) {
 // Fetch pending scheduled calls with behavior names
 $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.name AS behavior_name '
     . 'FROM scheduled_calls sc JOIN behaviors b ON sc.number = b.code '
-    . 'WHERE sc.executed_at IS NULL ORDER BY sc.scheduled_at')
+    . 'WHERE sc.executed_at IS NULL AND sc.scheduled_at >= NOW() ORDER BY sc.scheduled_at')
     ->fetchAll();
 ?>
 <!DOCTYPE html>
