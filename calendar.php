@@ -131,6 +131,23 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
     <link rel="icon" type="image/png" href="favicon.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <style>
+        .flatpickr-day {
+            position: relative;
+        }
+
+        .flatpickr-day.today::after {
+            content: "";
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            right: 3px;
+            bottom: 3px;
+            border: 2px solid #0d6efd;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+    </style>
 </head>
 
 <body>

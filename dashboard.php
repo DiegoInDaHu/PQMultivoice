@@ -43,6 +43,20 @@ foreach ($allPeriods as $row) {
         transform: scale(1.3);
         transform-origin: top center;
     }
+    .flatpickr-day {
+        position: relative;
+    }
+    .flatpickr-day.today::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        right: 3px;
+        bottom: 3px;
+        border: 2px solid #0d6efd;
+        border-radius: 4px;
+        pointer-events: none;
+    }
     </style>
 </head>
 <body>
