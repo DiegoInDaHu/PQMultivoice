@@ -134,6 +134,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
     <style>
         .flatpickr-day {
             position: relative;
+            z-index: 0;
         }
 
         .flatpickr-day.today::after {
@@ -146,6 +147,25 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
             border: 2px solid #0d6efd;
             border-radius: 4px;
             pointer-events: none;
+            z-index: 1;
+        }
+
+        .flatpickr-day.has-behavior,
+        .flatpickr-day.has-behavior:hover,
+        .flatpickr-day.has-behavior:focus {
+            color: #fff;
+            background: transparent !important;
+            border-color: transparent !important;
+        }
+
+        .flatpickr-day.has-behavior::before {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border-radius: 50%;
+            background-color: var(--behavior-color, transparent);
+            pointer-events: none;
+            z-index: -1;
         }
     </style>
 </head>
@@ -241,23 +261,28 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
             fp.calendarContainer.querySelectorAll('.flatpickr-day').forEach(function(dayElem) {
                 var date = fp.formatDate(dayElem.dateObj, 'Y-m-d');
                 var color = '';
-                var textColor = '';
                 if (selectedDates.indexOf(date) !== -1) {
                     color = currentBehaviorColor;
-                    textColor = '#fff';
                 } else {
-                    Object.keys(behaviorSchedules).forEach(function(code) {
+                    Object.keys(behaviorSchedules).some(function(code) {
                         if (behaviorSchedules[code].dates.indexOf(date) !== -1) {
                             color = behaviorColors[code];
-                            textColor = '#fff';
+                            return true;
                         }
+                        return false;
                     });
                 }
-                dayElem.style.backgroundColor = color;
-                dayElem.style.color = textColor;
                 if (color) {
-                    dayElem.style.boxShadow = 'none';
+                    dayElem.classList.add('has-behavior');
+                    dayElem.style.setProperty('--behavior-color', color);
+                    dayElem.style.color = '#fff';
+                } else {
+                    dayElem.classList.remove('has-behavior');
+                    dayElem.style.removeProperty('--behavior-color');
+                    dayElem.style.color = '';
                 }
+                dayElem.style.backgroundColor = '';
+                dayElem.style.boxShadow = '';
             });
         }
 
