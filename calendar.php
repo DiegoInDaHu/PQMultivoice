@@ -67,6 +67,9 @@ $changeTiming = $settings['change_timing'] ?? 'start';
 
 $behaviors = $pdo->query('SELECT id, name, code, color FROM behaviors ORDER BY name')->fetchAll();
 
+// Remove days in the past so they are not shown or stored
+$pdo->exec('DELETE FROM behavior_days WHERE day < CURDATE()');
+
 $message = '';
 $behaviorId = intval($_POST['behavior'] ?? $_GET['behavior'] ?? ($behaviors[0]['id'] ?? 0));
 $behaviorCode = '';
@@ -82,6 +85,10 @@ foreach ($behaviors as $b) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $datesStr = trim($_POST['dates'] ?? '');
     $dates = $datesStr !== '' ? array_filter(array_map('trim', explode(',', $datesStr))) : [];
+    $today = (new DateTimeImmutable('today'))->format('Y-m-d');
+    $dates = array_values(array_filter($dates, static function ($date) use ($today) {
+        return $date >= $today;
+    }));
     if ($behaviorId && $defaultExtension !== '') {
         $pdo->prepare('DELETE FROM behavior_days WHERE behavior_id = :bid')
             ->execute([':bid' => $behaviorId]);
@@ -184,7 +191,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                     <div class="col">
                         <div class="mb-3">
                             <label for="datePicker" class="form-label">Días</label>
-                            <input type="text" id="datePicker" class="form-control">
+                            <input type="text" id="datePicker" class="form-control" style="display:none;">
                             <input type="hidden" name="dates" id="dates">
                         </div>
                     </div>
@@ -264,6 +271,9 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
             mode: "multiple",
             dateFormat: "Y-m-d",
             defaultDate: existingDates,
+            inline: true,
+            clickOpens: false,
+            minDate: "today",
             onChange: function(selDates, dateStr, instance) {
                 var dates = selDates.map(function(d) {
                     return instance.formatDate(d, 'Y-m-d');
