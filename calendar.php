@@ -160,7 +160,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color:#003883">
         <div class="container-fluid">
-        <img src="proquo_pqmultivoice_blanco.png" alt="Logo" style="max-width: 120px;">
+            <img src="proquo_pqmultivoice_blanco.png" alt="Logo" style="max-width: 120px;">
             <div class="navbar-nav">
                 <a class="nav-link" href="dashboard.php">Resumen</a>
                 <a class="nav-link active" href="calendar.php">Calendario</a>
@@ -177,60 +177,88 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
         <?php if (!$behaviors): ?>
             <p>No hay comportamientos guardados. Agregue uno en Configuración.</p>
         <?php else: ?>
-            <h2>Configurar calendario</h2>
-            <form method="post" class="mb-3">
-                <div class="row mb-3">
-                    <div class="col">
-                        <label for="behavior" class="form-label">Comportamiento</label>
-                        <select class="form-select" name="behavior" id="behavior" onchange="location='calendar.php?behavior='+this.value;">
-                            <?php foreach ($behaviors as $b): ?>
-                                <option value="<?= $b['id'] ?>" <?= $b['id'] == $behaviorId ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="col">
-                        <div class="mb-3">
-                            <label for="datePicker" class="form-label">Días</label>
-                            <input type="text" id="datePicker" class="form-control" style="display:none;">
-                            <input type="hidden" name="dates" id="dates">
-                        </div>
+
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h2>Configurar calendario</h2>
+                    <div class="row mb-3">
+                        <form method="post" class="mb-3">
+
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+
+
+                                    <label for="behavior" class="form-label">Comportamiento</label>
+                                    <select class="form-select" name="behavior" id="behavior" onchange="location='calendar.php?behavior='+this.value;">
+                                        <?php foreach ($behaviors as $b): ?>
+                                            <option value="<?= $b['id'] ?>" <?= $b['id'] == $behaviorId ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+
+
+                                </div>
+                                <div class="col-md-8">
+                                    <label for="datePicker" class="form-label">Días</label>
+                                    <input type="text" id="datePicker" class="form-control" style="display:none;">
+                                    <input type="hidden" name="dates" id="dates">
+                                </div>
+
+
+                                <div class="row mb-3">
+                                    <div class="mt-3">
+                                        <?php foreach ($behaviorColors as $code => $color): ?>
+                                            <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
+                                            <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
+                                        <?php endforeach; ?>
+                                        <button type="submit" class="btn btn-success">Guardar días</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <h2>Cambios pendientes</h2>
 
-                <button type="submit" class="btn btn-success">Guardar días</button>
-            </form>
+                    <div class="row">
+                        <?php if (!empty($pendingCalls)): ?>
 
-            <div class="mt-3">
-                <?php foreach ($behaviorColors as $code => $color): ?>
-                    <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
-                    <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
-                <?php endforeach; ?>
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Extensión</th>
+                                        <th>Comportamiento</th>
+                                        <th>Programada</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($pendingCalls as $call): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($call['extension']) ?></td>
+                                            <td><?= htmlspecialchars($call['behavior_name']) ?></td>
+                                            <td><?= htmlspecialchars($call['scheduled_at']) ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php else: ?>
+                            <p class="mt-4">No hay cambios pendientes.</p>
+                        <?php endif; ?>
+
+                    </div>
+
+                </div>
             </div>
+
+
+
+
+
+
+
         <?php endif; ?>
 
-        <?php if (!empty($pendingCalls)): ?>
-            <h2 class="mt-4">Cambios pendientes</h2>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>Extensión</th>
-                        <th>Comportamiento</th>
-                        <th>Programada</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($pendingCalls as $call): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($call['extension']) ?></td>
-                            <td><?= htmlspecialchars($call['behavior_name']) ?></td>
-                            <td><?= htmlspecialchars($call['scheduled_at']) ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php else: ?>
-            <p class="mt-4">No hay cambios pendientes.</p>
-        <?php endif; ?>
+
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
@@ -280,7 +308,9 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                 });
                 document.getElementById('dates').value = dates.join(',');
                 if (!behaviorSchedules[currentBehaviorCode]) {
-                    behaviorSchedules[currentBehaviorCode] = {dates: []};
+                    behaviorSchedules[currentBehaviorCode] = {
+                        dates: []
+                    };
                 }
                 behaviorSchedules[currentBehaviorCode].dates = dates;
                 refreshColors(instance);
