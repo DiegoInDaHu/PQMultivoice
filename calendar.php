@@ -180,7 +180,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
 
             <div class="row mb-4">
                 <div class="col-md-6">
-                    <h2>Configurar calendario</h2>
+                    <h2>Asignar comportamientos</h2>
                     <div class="row mb-3">
                         <form method="post" class="mb-3">
                             <div class="row mt-3">
@@ -205,7 +205,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                                             <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
                                             <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
                                         <?php endforeach; ?>
-                                        <button type="submit" class="btn btn-success">Guardar días</button>
+                                        <button type="submit" class="btn btn-success">Guardar</button>
                                     </div>
                                 </div>
                             </div>
@@ -228,12 +228,17 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                                 </thead>
                                 <tbody>
                                     <?php foreach ($pendingCalls as $call): ?>
+                                        <?php
+                                        $fecha = new DateTime($call['scheduled_at']);
+                                        $fecha_formateada = $fecha->format('d-m-Y H:i');
+                                        ?>
                                         <tr>
                                             <td><?= htmlspecialchars($call['extension']) ?></td>
                                             <td><?= htmlspecialchars($call['behavior_name']) ?></td>
-                                            <td><?= htmlspecialchars($call['scheduled_at']) ?></td>
+                                            <td><?= htmlspecialchars($fecha_formateada) ?></td>
                                         </tr>
                                     <?php endforeach; ?>
+
                                 </tbody>
                             </table>
                         <?php else: ?>
