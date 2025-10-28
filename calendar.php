@@ -183,29 +183,24 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                     <h2>Configurar calendario</h2>
                     <div class="row mb-3">
                         <form method="post" class="mb-3">
-
-                            <div class="row mb-3">
+                            <div class="row mt-3">
                                 <div class="col-md-4">
-
-
                                     <label for="behavior" class="form-label">Comportamiento</label>
                                     <select class="form-select" name="behavior" id="behavior" onchange="location='calendar.php?behavior='+this.value;">
                                         <?php foreach ($behaviors as $b): ?>
                                             <option value="<?= $b['id'] ?>" <?= $b['id'] == $behaviorId ? 'selected' : '' ?>><?= htmlspecialchars($b['name']) ?></option>
                                         <?php endforeach; ?>
                                     </select>
-
-
                                 </div>
                                 <div class="col-md-8">
                                     <label for="datePicker" class="form-label">Días</label>
                                     <input type="text" id="datePicker" class="form-control" style="display:none;">
                                     <input type="hidden" name="dates" id="dates">
                                 </div>
-
-
-                                <div class="row mb-3">
-                                    <div class="mt-3">
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                    </div>
+                                    <div class="col-md-8">
                                         <?php foreach ($behaviorColors as $code => $color): ?>
                                             <span class="badge" style="background-color: <?= $color ?>;">&nbsp;</span>
                                             <?= htmlspecialchars($behaviorSchedules[$code]['name']) ?>&nbsp;
@@ -220,7 +215,7 @@ $pendingCalls = $pdo->query('SELECT sc.extension, sc.number, sc.scheduled_at, b.
                 <div class="col-md-6">
                     <h2>Cambios pendientes</h2>
 
-                    <div class="row">
+                    <div class="row mt-3">
                         <?php if (!empty($pendingCalls)): ?>
 
                             <table class="table table-striped">
